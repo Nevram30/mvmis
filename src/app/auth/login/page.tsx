@@ -1,25 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { signIn, getSession, useSession } from "next-auth/react";
+import { useState } from "react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-export default function Home() {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { data: session, status } = useSession();
-
-  // Redirect authenticated users to dashboard
-  useEffect(() => {
-    if (status === "loading") return;
-    
-    if (session) {
-      router.push("/dashboard");
-    }
-  }, [session, status, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,10 +26,33 @@ export default function Home() {
       if (result?.error) {
         setError("Invalid credentials");
       } else {
-        // Refresh the session
-        const data = await getSession();
-        console.log(data)
-        router.push("/dashboard");
+        // Refresh the session to get user role
+        const session = await getSession();
+        
+        // Redirect based on user role
+        if (session?.user?.role) {
+          switch (session.user.role) {
+            case "ADMIN":
+              router.push("/admin");
+              break;
+            case "MANAGER":
+              router.push("/manager");
+              break;
+            case "SECRETARY":
+              router.push("/secretary");
+              break;
+            case "MECHANIC":
+              router.push("/mechanic");
+              break;
+            case "PROPRIETOR":
+              router.push("/proprietor");
+              break;
+            default:
+              router.push("/");
+          }
+        } else {
+          router.push("/");
+        }
         router.refresh();
       }
     } catch (error) {
@@ -48,29 +61,6 @@ export default function Home() {
       setLoading(false);
     }
   };
-
-  // Show loading while checking session
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render login form if user is authenticated (will redirect)
-  if (session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-gray-600">Redirecting to dashboard...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
