@@ -36,14 +36,15 @@ export default function RegisterPage() {
         }),
       });
 
-      const data = await response.json();
+      const data: unknown = await response.json();
 
       if (response.ok) {
         router.push("/auth/login?message=Registration successful. Please sign in.");
       } else {
-        setError(data.error || "Registration failed");
+        const errorData = data as { error?: string };
+        setError(errorData.error ?? "Registration failed");
       }
-    } catch (error) {
+    } catch {
       setError("An error occurred during registration");
     } finally {
       setLoading(false);

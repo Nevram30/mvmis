@@ -112,7 +112,7 @@ export default function SecretaryPage() {
             <div className="mt-8">
               <div className="bg-white shadow rounded-lg">
                 <div className="px-4 py-5 sm:p-6">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">Today's Tasks</h3>
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">Today&apos;s Tasks</h3>
                   <div className="mt-5">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
