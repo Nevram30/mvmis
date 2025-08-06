@@ -25,7 +25,7 @@ The system supports 4 user roles:
 | ADMIN | admin@mvmis.com | System Administrator | password123 |
 | SECRETARY | secretary@mvmis.com | Maria Santos | password123 |
 | MECHANIC | mechanic1@mvmis.com | Juan Dela Cruz | password123 |
-| MECHANIC | mechanic2@mvmis.com | Pedro Garcia | password123 |
+| MANAGER| manager@mvmis.com | Carlos Mendoza | password123 |
 | PROPRIETOR | proprietor@mvmis.com | Roberto Reyes | password123 |
 
 ## Authentication & Session Management
