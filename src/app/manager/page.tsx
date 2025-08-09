@@ -1,6 +1,5 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import DashboardLayout from "~/app/_components/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -8,8 +7,6 @@ import { Button } from "~/components/ui/button";
 import { Users, ClipboardList, BarChart3, Clock, Settings, UserCheck } from "lucide-react";
 
 export default function ManagerPage() {
-  const { data: session } = useSession();
-
   return (
     <DashboardLayout allowedRoles={["MANAGER"]}>
       <div className="min-h-full bg-background">

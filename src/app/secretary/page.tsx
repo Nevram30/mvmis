@@ -1,14 +1,11 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import DashboardLayout from "~/app/_components/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { FileText, Calendar, Users, Clock } from "lucide-react";
 
 export default function SecretaryPage() {
-  const { data: session } = useSession();
 
   return (
     <DashboardLayout allowedRoles={["SECRETARY"]}>
@@ -83,7 +80,7 @@ export default function SecretaryPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                Today's Tasks
+                Today&apos;s Tasks
               </CardTitle>
               <CardDescription>Your scheduled tasks for today</CardDescription>
             </CardHeader>

@@ -1,6 +1,5 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import DashboardLayout from "~/app/_components/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -8,8 +7,6 @@ import { Button } from "~/components/ui/button";
 import { ClipboardList, CheckCircle, Package, Wrench } from "lucide-react";
 
 export default function MechanicPage() {
-  const { data: session } = useSession();
-
   return (
     <DashboardLayout allowedRoles={["MECHANIC"]}>
       <div className="min-h-full bg-background">
