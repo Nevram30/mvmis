@@ -33,6 +33,7 @@ declare module "next-auth" {
  */
 export const authConfig = {
   secret: env.AUTH_SECRET,
+  trustHost: true,
   providers: [
     CredentialsProvider({
       name: "credentials",
