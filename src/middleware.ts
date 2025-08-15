@@ -1,7 +1,7 @@
 import { auth } from "~/server/auth";
 
-export default auth((req) => {
-  // req.auth contains the session information
+export default auth((_req) => {
+  // _req.auth contains the session information
 });
 
 export const config = {

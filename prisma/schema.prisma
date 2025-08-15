@@ -69,3 +69,14 @@ model VerificationToken {
 
     @@unique([identifier, token])
 }
+
+model Vehicle {
+    id           String   @id @default(cuid())
+    plateNumber  String   @unique
+    make         String
+    engineNumber String   @unique
+    purchaseDate DateTime
+    purchaseCost Decimal  @db.Decimal(10, 2)
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+}
