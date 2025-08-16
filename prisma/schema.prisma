@@ -81,6 +81,7 @@ model Vehicle {
   updatedAt     DateTime       @updatedAt
   repairCosts   RepairCost[]
   sellingPrices SellingPrice[]
+  registrations Registration[]
 }
 
 model RepairCost {
@@ -111,4 +112,58 @@ model SellingPrice {
   vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@map("selling_price")
+}
+
+enum RegistrationStatus {
+  DEED_OF_SALE
+  ID
+  MAYOR_PERMIT
+}
+
+model Registration {
+  id               String   @id @default(cuid()) @map("id_registration")
+  vehicleId        String   @map("id_vehicle")
+  soldTo           String   @map("sold_to")
+  registrationDate DateTime @map("registration_date")
+  deedOfSale       Boolean  @default(false) @map("deed_of_sale")
+  idStatus         Boolean  @default(false) @map("id_status")
+  mayorPermit      Boolean  @default(false) @map("mayor_permit")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@map("registration")
+}
+
+enum AssignmentType {
+  OUTSIDE_LABOR
+  INHOUSE
+}
+
+model Customer {
+  id           String   @id @default(cuid()) @map("id_customer")
+  customerName String   @map("customer_name")
+  address      String
+  telNo        String?  @map("tel_no")
+  mobileNo     String?  @map("mobile_no")
+  tin          String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("customer")
+}
+
+model Contractor {
+  id             String         @id @default(cuid()) @map("id_contractor")
+  contractorName String         @map("contractor_name")
+  address        String
+  telNo          String?        @map("tel_no")
+  mobileNo       String?        @map("mobile_no")
+  tin            String?
+  assignment     AssignmentType
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@map("contractor")
 }

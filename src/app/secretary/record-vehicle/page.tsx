@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "~/components/ui/sheet";
-import { CalendarIcon, Car, List, Plus } from "lucide-react";
+import { CalendarIcon, Car, List, Plus, Edit } from "lucide-react";
 import DashboardLayout from "~/app/_components/dashboard-layout";
 import { api } from "~/trpc/react";
 
@@ -18,6 +18,16 @@ interface VehicleFormData {
   engineNumber: string;
   purchaseDate: string;
   purchaseCost: string;
+}
+
+interface Vehicle {
+  id: string;
+  plateNumber: string;
+  make: string;
+  engineNumber: string;
+  purchaseDate: Date;
+  purchaseCost: number | { toString(): string };
+  createdAt: Date;
 }
 
 export default function RecordVehiclePage() {
@@ -30,11 +40,15 @@ export default function RecordVehiclePage() {
   });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // tRPC hooks
   const { data: vehiclesData, isLoading: isLoadingVehicles, refetch: refetchVehicles } = api.vehicle.getAll.useQuery();
   const createVehicleMutation = api.vehicle.create.useMutation();
+  const updateVehicleMutation = api.vehicle.update.useMutation();
 
   const vehicles = vehiclesData?.vehicles ?? [];
 
@@ -46,27 +60,76 @@ export default function RecordVehiclePage() {
     }));
   };
 
+  const handleEdit = (vehicle: Vehicle) => {
+    setEditingVehicle(vehicle);
+    setIsEditMode(true);
+    setFormData({
+      plateNumber: vehicle.plateNumber,
+      make: vehicle.make,
+      engineNumber: vehicle.engineNumber,
+      purchaseDate: vehicle.purchaseDate.toISOString().split('T')[0] ?? "",
+      purchaseCost: vehicle.purchaseCost.toString(),
+    });
+    setIsSheetOpen(true);
+  };
+
+  const handleAddNew = () => {
+    setEditingVehicle(null);
+    setIsEditMode(false);
+    setFormData({
+      plateNumber: "",
+      make: "",
+      engineNumber: "",
+      purchaseDate: "",
+      purchaseCost: "",
+    });
+    setIsSheetOpen(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      plateNumber: "",
+      make: "",
+      engineNumber: "",
+      purchaseDate: "",
+      purchaseCost: "",
+    });
+    setEditingVehicle(null);
+    setIsEditMode(false);
+    setError(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     try {
-      await createVehicleMutation.mutateAsync({
-        plateNumber: formData.plateNumber,
-        make: formData.make,
-        engineNumber: formData.engineNumber,
-        purchaseDate: new Date(formData.purchaseDate),
-        purchaseCost: parseFloat(formData.purchaseCost),
-      });
+      const wasEditMode = isEditMode;
+      
+      if (isEditMode && editingVehicle) {
+        // Update existing vehicle
+        await updateVehicleMutation.mutateAsync({
+          id: editingVehicle.id,
+          plateNumber: formData.plateNumber,
+          make: formData.make,
+          engineNumber: formData.engineNumber,
+          purchaseDate: new Date(formData.purchaseDate),
+          purchaseCost: parseFloat(formData.purchaseCost),
+        });
+      } else {
+        // Create new vehicle
+        await createVehicleMutation.mutateAsync({
+          plateNumber: formData.plateNumber,
+          make: formData.make,
+          engineNumber: formData.engineNumber,
+          purchaseDate: new Date(formData.purchaseDate),
+          purchaseCost: parseFloat(formData.purchaseCost),
+        });
+      }
 
+      setSuccessMessage(`Vehicle record ${wasEditMode ? "updated" : "created"} successfully! The table below has been updated.`);
       setSuccess(true);
-      setFormData({
-        plateNumber: "",
-        make: "",
-        engineNumber: "",
-        purchaseDate: "",
-        purchaseCost: "",
-      });
+      resetForm();
 
       // Refresh the vehicles list
       await refetchVehicles();
@@ -75,6 +138,7 @@ export default function RecordVehiclePage() {
       setIsSheetOpen(false);
       setTimeout(() => {
         setSuccess(false);
+        setSuccessMessage("");
       }, 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -88,7 +152,7 @@ export default function RecordVehiclePage() {
         {success && (
           <Alert className="mb-6 border-green-500 bg-green-50">
             <AlertDescription className="text-green-700">
-              Vehicle record created successfully! The table below has been updated.
+              {successMessage}
             </AlertDescription>
           </Alert>
         )}
@@ -103,16 +167,16 @@ export default function RecordVehiclePage() {
               </div>
               <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                 <SheetTrigger asChild>
-                  <Button className="flex items-center gap-2">
+                  <Button className="flex items-center gap-2" onClick={handleAddNew}>
                     <Plus className="h-4 w-4" />
                     Add Vehicle
                   </Button>
                 </SheetTrigger>
                 <SheetContent className="w-[600px] sm:w-[600px] overflow-y-auto">
                   <SheetHeader>
-                    <SheetTitle>Vehicle Information</SheetTitle>
+                    <SheetTitle>{isEditMode ? "Edit Vehicle Information" : "Vehicle Information"}</SheetTitle>
                     <SheetDescription>
-                      Please fill in all the required vehicle details below
+                      {isEditMode ? "Update the vehicle details below" : "Please fill in all the required vehicle details below"}
                     </SheetDescription>
                   </SheetHeader>
 
@@ -205,16 +269,19 @@ export default function RecordVehiclePage() {
                     <div className="flex gap-4 pt-6">
                       <Button
                         type="submit"
-                        disabled={createVehicleMutation.isPending}
+                        disabled={createVehicleMutation.isPending || updateVehicleMutation.isPending}
                         className="flex-1"
                       >
-                        {createVehicleMutation.isPending ? "Creating..." : "Create Vehicle Record"}
+                        {isEditMode 
+                          ? (updateVehicleMutation.isPending ? "Updating..." : "Update Vehicle Record")
+                          : (createVehicleMutation.isPending ? "Creating..." : "Create Vehicle Record")
+                        }
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
                         onClick={() => setIsSheetOpen(false)}
-                        disabled={createVehicleMutation.isPending}
+                        disabled={createVehicleMutation.isPending || updateVehicleMutation.isPending}
                       >
                         Cancel
                       </Button>
@@ -250,6 +317,7 @@ export default function RecordVehiclePage() {
                       <TableHead>Purchase Date</TableHead>
                       <TableHead className="text-right">Purchase Cost</TableHead>
                       <TableHead>Date Recorded</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -281,6 +349,17 @@ export default function RecordVehiclePage() {
                             month: 'short',
                             day: 'numeric'
                           }).format(new Date(vehicle.createdAt))}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-1"
+                            onClick={() => handleEdit(vehicle)}
+                          >
+                            <Edit className="h-3 w-3" />
+                            Edit
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

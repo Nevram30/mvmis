@@ -21,7 +21,10 @@ import {
   CreditCard,
   LogOut,
   UserCheck,
-  TrendingUp
+  TrendingUp,
+  FileCheck,
+  UserPlus,
+  HardHat
 } from "lucide-react";
 
 interface NavigationItem {
@@ -61,6 +64,9 @@ const getNavigationItems = (role: UserRole, pathname: string): NavigationItem[] 
         { name: "Dashboard", href: "/secretary", icon: Home, current: pathname === "/secretary" },
         { name: "Record Vehicle", href: "/secretary/record-vehicle", icon: FileText, current: pathname === "/secretary/record-vehicle" },
         { name: "Record Sales", href: "/secretary/record-sales", icon: FileText, current: pathname === "/secretary/record-sales" },
+        { name: "Registration", href: "/secretary/registration", icon: FileCheck, current: pathname === "/secretary/registration" },
+        { name: "Add Customer", href: "/secretary/add-customer", icon: UserPlus, current: pathname === "/secretary/add-customer" },
+        { name: "Add Contractor", href: "/secretary/add-contractor", icon: HardHat, current: pathname === "/secretary/add-contractor" },
       ];
 
     case "MECHANIC":
