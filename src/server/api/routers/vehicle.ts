@@ -9,6 +9,11 @@ const createVehicleSchema = z.object({
   purchaseCost: z.number().positive("Purchase cost must be positive"),
 });
 
+const createSellingPriceSchema = z.object({
+  vehicleId: z.string().min(1, "Vehicle ID is required"),
+  sellingPrice: z.number().positive("Selling price must be positive"),
+});
+
 export const vehicleRouter = createTRPCRouter({
   create: protectedProcedure
     .input(createVehicleSchema)
@@ -62,6 +67,59 @@ export const vehicleRouter = createTRPCRouter({
 
   getAll: protectedProcedure.query(async ({ ctx }) => {
     const vehicles = await ctx.db.vehicle.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return { vehicles };
+  }),
+
+  createSellingPrice: protectedProcedure
+    .input(createSellingPriceSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Check if user has permission to create selling price records
+      if (ctx.session.user.role !== "SECRETARY" && ctx.session.user.role !== "ADMIN") {
+        throw new Error("Insufficient permissions");
+      }
+
+      // Verify the vehicle exists
+      const vehicle = await ctx.db.vehicle.findUnique({
+        where: { id: input.vehicleId },
+      });
+
+      if (!vehicle) {
+        throw new Error("Vehicle not found");
+      }
+
+      // Create the selling price record
+      const sellingPrice = await ctx.db.sellingPrice.create({
+        data: {
+          vehicleId: input.vehicleId,
+          sellingPrice: input.sellingPrice,
+        },
+      });
+
+      return {
+        message: "Selling price record created successfully",
+        sellingPrice: {
+          id: sellingPrice.id,
+          vehicleId: sellingPrice.vehicleId,
+          sellingPrice: sellingPrice.sellingPrice,
+          createdAt: sellingPrice.createdAt,
+        },
+      };
+    }),
+
+  getAllWithSellingPrices: protectedProcedure.query(async ({ ctx }) => {
+    const vehicles = await ctx.db.vehicle.findMany({
+      include: {
+        sellingPrices: {
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+      },
       orderBy: {
         createdAt: "desc",
       },
