@@ -191,7 +191,7 @@ export default function RecordVehiclePage() {
                   <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="plateNumber">Plate Number *</Label>
+                        <Label htmlFor="plateNumber">Plate Number</Label>
                         <Input
                           id="plateNumber"
                           name="plateNumber"
@@ -219,7 +219,7 @@ export default function RecordVehiclePage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="engineNumber">Engine Number *</Label>
+                      <Label htmlFor="engineNumber">Engine Number</Label>
                       <Input
                         id="engineNumber"
                         name="engineNumber"
@@ -233,7 +233,7 @@ export default function RecordVehiclePage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="purchaseDate">Purchase Date *</Label>
+                        <Label htmlFor="purchaseDate">Registration Date</Label>
                         <div className="relative">
                           <Input
                             id="purchaseDate"
@@ -248,7 +248,7 @@ export default function RecordVehiclePage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="purchaseCost">Purchase Cost *</Label>
+                        <Label htmlFor="purchaseCost">Purchase Cost</Label>
                         <div className="relative">
                           <span className="absolute left-3 top-3 text-muted-foreground">₱</span>
                           <Input
@@ -314,8 +314,8 @@ export default function RecordVehiclePage() {
                       <TableHead>Plate Number</TableHead>
                       <TableHead>Make</TableHead>
                       <TableHead>Engine Number</TableHead>
-                      <TableHead>Purchase Date</TableHead>
-                      <TableHead className="text-right">Purchase Cost</TableHead>
+                      <TableHead>Registration Date</TableHead>
+                      <TableHead>Purchase Cost</TableHead>
                       <TableHead>Date Recorded</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
@@ -337,7 +337,7 @@ export default function RecordVehiclePage() {
                             day: 'numeric'
                           })}
                         </TableCell>
-                        <TableCell className="text-right font-medium">
+                        <TableCell className="font-medium">
                           ₱{new Intl.NumberFormat('en-US', {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2
