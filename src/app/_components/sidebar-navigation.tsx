@@ -24,7 +24,8 @@ import {
   TrendingUp,
   FileCheck,
   UserPlus,
-  HardHat
+  HardHat,
+  FileEdit
 } from "lucide-react";
 
 interface NavigationItem {
@@ -67,6 +68,7 @@ const getNavigationItems = (role: UserRole, pathname: string): NavigationItem[] 
         { name: "Registration", href: "/secretary/registration", icon: FileCheck, current: pathname === "/secretary/registration" },
         { name: "Add Customer", href: "/secretary/add-customer", icon: UserPlus, current: pathname === "/secretary/add-customer" },
         { name: "Add Contractor", href: "/secretary/add-contractor", icon: HardHat, current: pathname === "/secretary/add-contractor" },
+        { name: "Add Requisition", href: "/secretary/add-requisition", icon: FileEdit, current: pathname === "/secretary/add-requisition" },
       ];
 
     case "MECHANIC":

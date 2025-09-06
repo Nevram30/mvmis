@@ -142,28 +142,95 @@ enum AssignmentType {
 }
 
 model Customer {
-  id           String   @id @default(cuid()) @map("id_customer")
-  customerName String   @map("customer_name")
-  address      String
-  telNo        String?  @map("tel_no")
-  mobileNo     String?  @map("mobile_no")
-  tin          String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String             @id @default(cuid()) @map("id_customer")
+  customerName  String             @map("customer_name")
+  address       String
+  telNo         String?            @map("tel_no")
+  mobileNo      String?            @map("mobile_no")
+  tin           String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  orderRequests OrderRequisition[]
 
   @@map("customer")
 }
 
 model Contractor {
-  id             String         @id @default(cuid()) @map("id_contractor")
-  contractorName String         @map("contractor_name")
+  id             String            @id @default(cuid()) @map("id_contractor")
+  contractorName String            @map("contractor_name")
   address        String
-  telNo          String?        @map("tel_no")
-  mobileNo       String?        @map("mobile_no")
+  telNo          String?           @map("tel_no")
+  mobileNo       String?           @map("mobile_no")
   tin            String?
   assignment     AssignmentType
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  orderRequests  OrderRequisition[]
 
   @@map("contractor")
+}
+
+enum OrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model OrderRequisition {
+  id                              String                    @id @default(cuid()) @map("id_order_requisition")
+  customerId                      String                    @map("id_customer")
+  contractorId                    String                    @map("id_contractor")
+  make                           String
+  plateNumber                    String                    @map("plate_number")
+  engineNumber                   String                    @map("engine_number")
+  orderDate                      DateTime                  @default(now()) @map("order_date")
+  totalLaborAndServicesExpenses  Decimal                   @default(0) @map("total_labor_and_services_expenses") @db.Decimal(10, 2)
+  totalPartsAndMaterialExpenses  Decimal                   @default(0) @map("total_parts_and_material_expenses") @db.Decimal(10, 2)
+  overallTotal                   Decimal                   @default(0) @map("overall_total") @db.Decimal(10, 2)
+  generatedOrNumber              String?                   @map("generated_or_number")
+  status                         OrderStatus               @default(PENDING)
+  notes                          String?
+  createdAt                      DateTime                  @default(now())
+  updatedAt                      DateTime                  @updatedAt
+
+  customer      Customer                @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contractor    Contractor              @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  laborItems    OrderLaborItem[]
+  materialItems OrderMaterialItem[]
+
+  @@map("order_requisition")
+}
+
+model OrderLaborItem {
+  id                    String           @id @default(cuid()) @map("id_labor_item")
+  orderRequisitionId    String           @map("id_order_requisition")
+  itemNumber            Int              @map("item_number")
+  description           String
+  expenses              Decimal          @default(0) @db.Decimal(10, 2)
+  mechanic              String?
+  assignment            String?
+  remarks               String?
+  status                String?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  orderRequisition OrderRequisition @relation(fields: [orderRequisitionId], references: [id], onDelete: Cascade)
+
+  @@map("order_labor_item")
+}
+
+model OrderMaterialItem {
+  id                    String           @id @default(cuid()) @map("id_material_item")
+  orderRequisitionId    String           @map("id_order_requisition")
+  itemNumber            Int              @map("item_number")
+  quantity              Int?             @default(1)
+  description           String
+  expenses              Decimal          @default(0) @db.Decimal(10, 2)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  orderRequisition OrderRequisition @relation(fields: [orderRequisitionId], references: [id], onDelete: Cascade)
+
+  @@map("order_material_item")
 }

@@ -9,38 +9,27 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~
 import { Badge } from "~/components/ui/badge";
 import { UserPlus, Search, Edit, Trash2 } from "lucide-react";
 import DashboardLayout from "~/app/_components/dashboard-layout";
-
-interface Customer {
-  id: string;
-  customerName: string;
-  address: string;
-  telNo?: string;
-  mobileNo?: string;
-  tin?: string;
-  createdAt: string;
-}
+import { api } from "~/trpc/react";
 
 export default function AddCustomerPage() {
-  const [customers, setCustomers] = useState<Customer[]>([
-    {
-      id: "1",
-      customerName: "John Doe",
-      address: "123 Main St, City",
-      telNo: "123-456-7890",
-      mobileNo: "987-654-3210",
-      tin: "123-456-789",
-      createdAt: "2024-01-15"
+  const { data: customers, refetch: refetchCustomers } = api.customer.getAll.useQuery();
+  const createCustomerMutation = api.customer.create.useMutation({
+    onSuccess: () => {
+      refetchCustomers();
+      setFormData({
+        customerName: "",
+        address: "",
+        telNo: "",
+        mobileNo: "",
+        tin: ""
+      });
     },
-    {
-      id: "2",
-      customerName: "Jane Smith",
-      address: "456 Oak Ave, Town",
-      telNo: "555-123-4567",
-      mobileNo: "555-987-6543",
-      tin: "987-654-321",
-      createdAt: "2024-01-20"
-    }
-  ]);
+  });
+  const deleteCustomerMutation = api.customer.delete.useMutation({
+    onSuccess: () => {
+      refetchCustomers();
+    },
+  });
 
   const [formData, setFormData] = useState({
     customerName: "",
@@ -60,38 +49,37 @@ export default function AddCustomerPage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const newCustomer: Customer = {
-      id: Date.now().toString(),
-      customerName: formData.customerName,
-      address: formData.address,
-      telNo: formData.telNo.trim() === '' ? undefined : formData.telNo.trim(),
-      mobileNo: formData.mobileNo.trim() === '' ? undefined : formData.mobileNo.trim(),
-      tin: formData.tin.trim() === '' ? undefined : formData.tin.trim(),
-      createdAt: new Date().toISOString().split('T')[0]!
-    };
-
-    setCustomers(prev => [newCustomer, ...prev]);
-    setFormData({
-      customerName: "",
-      address: "",
-      telNo: "",
-      mobileNo: "",
-      tin: ""
-    });
+    try {
+      await createCustomerMutation.mutateAsync({
+        customerName: formData.customerName,
+        address: formData.address,
+        telNo: formData.telNo.trim() === '' ? undefined : formData.telNo.trim(),
+        mobileNo: formData.mobileNo.trim() === '' ? undefined : formData.mobileNo.trim(),
+        tin: formData.tin.trim() === '' ? undefined : formData.tin.trim(),
+      });
+    } catch (error) {
+      console.error("Error creating customer:", error);
+      alert("Failed to create customer");
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setCustomers(prev => prev.filter(customer => customer.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteCustomerMutation.mutateAsync({ id });
+    } catch (error) {
+      console.error("Error deleting customer:", error);
+      alert("Failed to delete customer");
+    }
   };
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ??
-    customer.address.toLowerCase().includes(searchTerm.toLowerCase()) ??
+  const filteredCustomers = customers?.filter(customer =>
+    customer.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    customer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.tin?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ) || [];
 
   return (
     <DashboardLayout allowedRoles={["SECRETARY"]}>
@@ -172,9 +160,13 @@ export default function AddCustomerPage() {
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full md:w-auto">
+              <Button 
+                type="submit" 
+                className="w-full md:w-auto"
+                disabled={createCustomerMutation.isPending}
+              >
                 <UserPlus className="mr-2 h-4 w-4" />
-                Add Customer
+                {createCustomerMutation.isPending ? "Adding..." : "Add Customer"}
               </Button>
             </form>
           </CardContent>
@@ -235,7 +227,7 @@ export default function AddCustomerPage() {
                         <TableCell>{customer.telNo ?? "—"}</TableCell>
                         <TableCell>{customer.mobileNo ?? "—"}</TableCell>
                         <TableCell>{customer.tin ?? "—"}</TableCell>
-                        <TableCell>{customer.createdAt}</TableCell>
+                        <TableCell>{new Date(customer.createdAt).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Button variant="ghost" size="sm">
@@ -246,6 +238,7 @@ export default function AddCustomerPage() {
                               size="sm"
                               onClick={() => handleDelete(customer.id)}
                               className="text-destructive hover:text-destructive"
+                              disabled={deleteCustomerMutation.isPending}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
