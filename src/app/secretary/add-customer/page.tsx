@@ -15,7 +15,7 @@ export default function AddCustomerPage() {
   const { data: customers, refetch: refetchCustomers } = api.customer.getAll.useQuery();
   const createCustomerMutation = api.customer.create.useMutation({
     onSuccess: () => {
-      refetchCustomers();
+      void refetchCustomers();
       setFormData({
         customerName: "",
         address: "",
@@ -27,7 +27,7 @@ export default function AddCustomerPage() {
   });
   const deleteCustomerMutation = api.customer.delete.useMutation({
     onSuccess: () => {
-      refetchCustomers();
+      void refetchCustomers();
     },
   });
 
@@ -79,7 +79,7 @@ export default function AddCustomerPage() {
     customer.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.tin?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  ) ?? [];
 
   return (
     <DashboardLayout allowedRoles={["SECRETARY"]}>

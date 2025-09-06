@@ -12,22 +12,6 @@ import { Plus, Edit, Trash2, Eye } from "lucide-react";
 import { api } from "~/trpc/react";
 import DashboardLayout from "~/app/_components/dashboard-layout";
 
-interface OrderRequisition {
-  id: string;
-  customer: {
-    customerName: string;
-  };
-  contractor: {
-    contractorName: string;
-  };
-  make: string;
-  plateNumber: string;
-  engineNumber: string;
-  orderDate: Date;
-  generatedOrNumber: string | null;
-  status: string;
-  overallTotal: number;
-}
 
 interface LaborItem {
   itemNumber: number;
@@ -73,14 +57,6 @@ export default function AddRequisitionPage() {
   const { data: contractors } = api.contractor.getAll.useQuery();
   const { data: orders, refetch: refetchOrders } = api.orderRequisition.getAll.useQuery();
 
-  // Function to get assignees based on contractor selection
-  const getAssigneesForContractor = (contractorId: string) => {
-    const selectedContractor = contractors?.find(c => c.id === contractorId);
-    if (!selectedContractor) return [];
-
-    // Return all contractors with the same assignment type as the selected contractor
-    return contractors?.filter(c => c.assignment === selectedContractor.assignment) || [];
-  };
 
   // Function to handle contractor selection and automatically set assignee
   const handleContractorChange = (laborIndex: number, contractorId: string) => {
@@ -104,7 +80,7 @@ export default function AddRequisitionPage() {
   
   const createOrderMutation = api.orderRequisition.create.useMutation({
     onSuccess: () => {
-      refetchOrders();
+      void refetchOrders();
       setIsCreateDialogOpen(false);
       // Reset form
       setFormData({
@@ -126,7 +102,7 @@ export default function AddRequisitionPage() {
     }
 
     // Set a default contractor for now since it's required by the database but not in the UI
-    const defaultContractorId = contractors?.[0]?.id || "";
+    const defaultContractorId = contractors?.[0]?.id ?? "";
     if (!defaultContractorId) {
       alert("No contractors available. Please add a contractor first.");
       return;
@@ -232,7 +208,7 @@ export default function AddRequisitionPage() {
     } as const;
 
     return (
-      <Badge variant={variants[status as keyof typeof variants] || "secondary"}>
+      <Badge variant={variants[status as keyof typeof variants] ?? "secondary"}>
         {status}
       </Badge>
     );
@@ -275,7 +251,7 @@ export default function AddRequisitionPage() {
                         onChange={(e) => setFormData(prev => ({ ...prev, customerId: e.target.value }))}
                       >
                         <option value="">Select Customer</option>
-                        {customers?.map((customer: any) => (
+                        {customers?.map((customer) => (
                           <option key={customer.id} value={customer.id}>
                             {customer.customerName}
                           </option>
@@ -369,11 +345,11 @@ export default function AddRequisitionPage() {
                             <TableCell>
                               <select
                                 className="w-full p-2 border rounded-md text-sm"
-                                value={item.contractor || ''}
+                                value={item.contractor ?? ''}
                                 onChange={(e) => handleContractorChange(index, e.target.value)}
                               >
                                 <option value="">Select Contractor</option>
-                                {contractors?.map((contractor: any) => (
+                                {contractors?.map((contractor) => (
                                   <option key={contractor.id} value={contractor.id}>
                                     {contractor.contractorName} ({contractor.assignment === 'OUTSIDE_LABOR' ? 'Outside Labor' : 'In-house'})
                                   </option>
@@ -393,7 +369,7 @@ export default function AddRequisitionPage() {
                             </TableCell>
                             <TableCell>
                               <Input
-                                value={item.remarks || ''}
+                                value={item.remarks ?? ''}
                                 onChange={(e) => updateLaborItem(index, 'remarks', e.target.value)}
                                 placeholder="Remarks"
                               />
@@ -401,7 +377,7 @@ export default function AddRequisitionPage() {
                             <TableCell>
                               <div className="text-sm">
                                 <Badge variant="secondary">
-                                  {item.status || "Pending"}
+                                  {item.status ?? "Pending"}
                                 </Badge>
                               </div>
                             </TableCell>
@@ -550,7 +526,7 @@ export default function AddRequisitionPage() {
                   orders.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium">
-                        {order.generatedOrNumber || "System generated"}
+                        {order.generatedOrNumber ?? "System generated"}
                       </TableCell>
                       <TableCell>{order.customer.customerName}</TableCell>
                       <TableCell>{order.contractor.contractorName}</TableCell>
