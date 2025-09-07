@@ -8,9 +8,12 @@ import { Label } from "~/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "~/components/ui/dialog";
 import { Badge } from "~/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import { Plus, Edit, Trash2, Eye } from "lucide-react";
 import { api } from "~/trpc/react";
 import DashboardLayout from "~/app/_components/dashboard-layout";
+
+import LaborRepairFormDialog from "~/components/LaborRepairFormDialog";
 
 
 interface LaborItem {
@@ -20,7 +23,6 @@ interface LaborItem {
   assignee?: string;
   contractor?: string;
   assignment?: string;
-  remarks?: string;
   status?: string;
 }
 
@@ -43,19 +45,82 @@ interface OrderFormData {
 
 export default function AddRequisitionPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isLaborFormOpen, setIsLaborFormOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string>("");
+  const [selectedLaborItem, setSelectedLaborItem] = useState<{
+    id: string;
+    itemNumber: number;
+    description: string;
+    expenses: number | { toNumber(): number };
+    mechanic?: string | null;
+    assignment?: string | null;
+    status?: string | null;
+  } | null>(null);
   const [formData, setFormData] = useState<OrderFormData>({
     customerId: "",
     contractorId: "",
     make: "",
     plateNumber: "",
     engineNumber: "",
-    laborItems: [{ itemNumber: 1, description: "", expenses: 0, assignee: "", contractor: "", remarks: "", status: "Pending" }],
+    laborItems: [{ itemNumber: 1, description: "", expenses: 0, assignee: "", contractor: "", status: "Pending" }],
     materialItems: [{ itemNumber: 1, quantity: 1, description: "", expenses: 0 }],
   });
 
   const { data: customers } = api.customer.getAll.useQuery();
   const { data: contractors } = api.contractor.getAll.useQuery();
   const { data: orders, refetch: refetchOrders } = api.orderRequisition.getAll.useQuery();
+  console.log("orders:", orders);
+  
+  // Query for labor items when editing
+  const { data: laborItems, refetch: refetchLaborItems } = api.orderRequisition.getLaborItems.useQuery(
+    { orderRequisitionId: selectedOrderId },
+    { enabled: !!selectedOrderId && isEditDialogOpen }
+  );
+
+  // Debug: Log the labor items data
+  console.log("Labor items data:", laborItems);
+
+  // Mutation for updating labor item status
+  const updateLaborItemStatusMutation = api.orderRequisition.updateLaborItemStatus.useMutation({
+    onSuccess: () => {
+      void refetchLaborItems();
+    },
+  });
+
+  // Function to handle opening edit dialog
+  const handleEditOrder = (orderId: string) => {
+    setSelectedOrderId(orderId);
+    setIsEditDialogOpen(true);
+  };
+
+  // Function to handle status update
+  const handleStatusUpdate = async (laborItemId: string, status: "approved" | "disapproved") => {
+    try {
+      await updateLaborItemStatusMutation.mutateAsync({
+        laborItemId,
+        status,
+      });
+    } catch (error) {
+      console.error("Error updating labor item status:", error);
+      alert("Failed to update status");
+    }
+  };
+
+  // Function to handle opening labor form
+  const handleOpenLaborForm = (laborItem: {
+    id: string;
+    itemNumber: number;
+    description: string;
+    expenses: number | { toNumber(): number };
+    mechanic?: string | null;
+    assignment?: string | null;
+    status?: string | null;
+  }) => {
+    setSelectedLaborItem(laborItem);
+    setIsLaborFormOpen(true);
+  };
+
 
 
   // Function to handle contractor selection and automatically set assignee
@@ -65,7 +130,7 @@ export default function AddRequisitionPage() {
     updateLaborItem(laborIndex, 'contractor', contractorId);
     
     if (selectedContractor) {
-      // Automatically set the assignee to the selected contractor's name
+      // Set the mechanic field to the contractor's name (this is what gets saved to DB)
       updateLaborItem(laborIndex, 'assignee', selectedContractor.contractorName);
       
       // Set the assignment type based on contractor's assignment
@@ -77,6 +142,7 @@ export default function AddRequisitionPage() {
       updateLaborItem(laborIndex, 'assignment', '');
     }
   };
+
   
   const createOrderMutation = api.orderRequisition.create.useMutation({
     onSuccess: () => {
@@ -89,7 +155,7 @@ export default function AddRequisitionPage() {
         make: "",
         plateNumber: "",
         engineNumber: "",
-        laborItems: [{ itemNumber: 1, description: "", expenses: 0, assignee: "", contractor: "", remarks: "", status: "Pending" }],
+        laborItems: [{ itemNumber: 1, description: "", expenses: 0, assignee: "", contractor: "", status: "Pending" }],
         materialItems: [{ itemNumber: 1, quantity: 1, description: "", expenses: 0 }],
       });
     },
@@ -109,13 +175,25 @@ export default function AddRequisitionPage() {
     }
 
     try {
+      // Map the frontend data to match the backend schema
+      const mappedLaborItems = formData.laborItems
+        .filter(item => item.description.trim() !== "")
+        .map(item => ({
+          itemNumber: item.itemNumber,
+          description: item.description,
+          expenses: item.expenses,
+          mechanic: item.assignee, // Map assignee to mechanic field
+          assignment: item.assignment,
+          status: item.status,
+        }));
+
       await createOrderMutation.mutateAsync({
         customerId: formData.customerId,
         contractorId: defaultContractorId,
         make: formData.make,
         plateNumber: formData.plateNumber,
         engineNumber: formData.engineNumber,
-        laborItems: formData.laborItems.filter(item => item.description.trim() !== ""),
+        laborItems: mappedLaborItems,
         materialItems: formData.materialItems.filter(item => item.description.trim() !== ""),
       });
     } catch (error) {
@@ -133,7 +211,6 @@ export default function AddRequisitionPage() {
         expenses: 0,
         assignee: "",
         contractor: "",
-        remarks: "",
         status: "Pending"
       }]
     }));
@@ -318,7 +395,6 @@ export default function AddRequisitionPage() {
                           <TableHead className="w-32">Expenses</TableHead>
                           <TableHead className="w-32">Contractor</TableHead>
                           <TableHead className="w-32">Assignee</TableHead>
-                          <TableHead className="w-32">Remarks</TableHead>
                           <TableHead className="w-32">Status</TableHead>
                           <TableHead className="w-16">Actions</TableHead>
                         </TableRow>
@@ -345,7 +421,7 @@ export default function AddRequisitionPage() {
                             <TableCell>
                               <select
                                 className="w-full p-2 border rounded-md text-sm"
-                                value={item.contractor ?? ''}
+                                value={item.contractor ?? ""}
                                 onChange={(e) => handleContractorChange(index, e.target.value)}
                               >
                                 <option value="">Select Contractor</option>
@@ -366,13 +442,6 @@ export default function AddRequisitionPage() {
                                   <span className="text-muted-foreground">-</span>
                                 )}
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                value={item.remarks ?? ''}
-                                onChange={(e) => updateLaborItem(index, 'remarks', e.target.value)}
-                                placeholder="Remarks"
-                              />
                             </TableCell>
                             <TableCell>
                               <div className="text-sm">
@@ -396,7 +465,7 @@ export default function AddRequisitionPage() {
                         <TableRow>
                           <TableCell colSpan={2} className="font-semibold">TOTAL Labor and Services</TableCell>
                           <TableCell className="font-semibold">{calculateTotalLabor().toFixed(2)}</TableCell>
-                          <TableCell colSpan={6}></TableCell>
+                          <TableCell colSpan={4}></TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
@@ -500,6 +569,106 @@ export default function AddRequisitionPage() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Edit Labor Items Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Edit Labor Items Status</DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Labor Items</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {laborItems && laborItems.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-16">Item #</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead className="w-32">Expenses</TableHead>
+                            <TableHead className="w-32">Contractor</TableHead>
+                            <TableHead className="w-32">Assignee</TableHead>
+                            <TableHead className="w-40">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {laborItems.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium">{item.itemNumber}</TableCell>
+                              <TableCell>{item.description}</TableCell>
+                              <TableCell>₱{(typeof item.expenses === 'object' && 'toNumber' in item.expenses ? item.expenses.toNumber() : Number(item.expenses)).toFixed(2)}</TableCell>
+                              <TableCell>
+                                <div className="text-sm font-medium">
+                                  {item.mechanic ?? "-"}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {item.assignment ? (
+                                  <Badge variant={item.assignment === 'Outside Labor' ? 'secondary' : 'default'}>
+                                    {item.assignment}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {item.assignment === 'Outside Labor' ? (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleOpenLaborForm(item)}
+                                    className="w-full"
+                                  >
+                                    Create Labor Form
+                                  </Button>
+                                ) : item.assignment === 'In-house Labor' ? (
+                                  <Select
+                                    value={item.status ?? ""}
+                                    onValueChange={(value) => handleStatusUpdate(item.id, value as "approved" | "disapproved")}
+                                  >
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue placeholder="Select Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="approved">Approved</SelectItem>
+                                      <SelectItem value="disapproved">Disapproved</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">No assignment</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="text-center text-muted-foreground py-8">
+                        No labor items found for this order requisition.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Labor Repair Form Dialog */}
+          <LaborRepairFormDialog 
+            isOpen={isLaborFormOpen}
+            onClose={() => setIsLaborFormOpen(false)}
+            selectedLaborItem={selectedLaborItem}
+          />
         </div>
 
         {/* Orders Table */}
@@ -546,7 +715,11 @@ export default function AddRequisitionPage() {
                           <Button variant="ghost" size="sm">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleEditOrder(order.id)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm">

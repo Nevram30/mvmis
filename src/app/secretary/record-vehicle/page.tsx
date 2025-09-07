@@ -157,13 +157,13 @@ export default function RecordVehiclePage() {
           </Alert>
         )}
 
-        {/* Vehicle Records Table */}
+        {/* Vehicle Records Table Motor Vehicle Inventory List */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <List className="h-5 w-5" />
-                <CardTitle>Vehicle Records</CardTitle>
+                <CardTitle>Motor Vehicle Inventory</CardTitle>
               </div>
               <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                 <SheetTrigger asChild>
@@ -291,7 +291,7 @@ export default function RecordVehiclePage() {
               </Sheet>
             </div>
             <CardDescription>
-              List of all recorded vehicles in the system
+              Motor Vehicle Inventory List
             </CardDescription>
           </CardHeader>
           <CardContent>

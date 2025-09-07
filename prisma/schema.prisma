@@ -210,12 +210,12 @@ model OrderLaborItem {
   expenses              Decimal          @default(0) @db.Decimal(10, 2)
   mechanic              String?
   assignment            String?
-  remarks               String?
   status                String?
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
 
   orderRequisition OrderRequisition @relation(fields: [orderRequisitionId], references: [id], onDelete: Cascade)
+  laborRepairForms LaborRepairForm[]
 
   @@map("order_labor_item")
 }
@@ -233,4 +233,42 @@ model OrderMaterialItem {
   orderRequisition OrderRequisition @relation(fields: [orderRequisitionId], references: [id], onDelete: Cascade)
 
   @@map("order_material_item")
+}
+
+model LaborRepairForm {
+  id                    String                @id @default(cuid()) @map("id_labor_repair_form")
+  lrfNumber             String                @unique @map("lrf_number")
+  orderLaborItemId      String                @map("id_order_labor_item")
+  contractorName        String                @map("contractor_name")
+  date                  DateTime              @default(now())
+  make                  String
+  plateNumber           String                @map("plate_number")
+  engineNumber          String                @map("engine_number")
+  amount                Decimal               @db.Decimal(10, 2)
+  orNumber              String?               @map("or_number")
+  scopeOfWorkDetails    String?               @map("scope_of_work_details") @db.Text
+  totalCashAdvance      Decimal               @default(0) @map("total_cash_advance") @db.Decimal(10, 2)
+  reviewedBy            DateTime?             @map("reviewed_by")
+  approvedBy            DateTime?             @map("approved_by")
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  orderLaborItem        OrderLaborItem        @relation(fields: [orderLaborItemId], references: [id], onDelete: Cascade)
+  cashAdvances          LaborRepairFormCashAdvance[]
+
+  @@map("labor_repair_form")
+}
+
+model LaborRepairFormCashAdvance {
+  id                    String           @id @default(cuid()) @map("id_cash_advance")
+  laborRepairFormId     String           @map("id_labor_repair_form")
+  date                  DateTime
+  amount                Decimal          @db.Decimal(10, 2)
+  balance               Decimal          @db.Decimal(10, 2)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  laborRepairForm       LaborRepairForm  @relation(fields: [laborRepairFormId], references: [id], onDelete: Cascade)
+
+  @@map("labor_repair_form_cash_advance")
 }

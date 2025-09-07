@@ -63,7 +63,7 @@ const getNavigationItems = (role: UserRole, pathname: string): NavigationItem[] 
     case "SECRETARY":
       return [
         { name: "Dashboard", href: "/secretary", icon: Home, current: pathname === "/secretary" },
-        { name: "Record Vehicle", href: "/secretary/record-vehicle", icon: FileText, current: pathname === "/secretary/record-vehicle" },
+        { name: "Inventory", href: "/secretary/record-vehicle", icon: FileText, current: pathname === "/secretary/record-vehicle" },
         { name: "Record Sales", href: "/secretary/record-sales", icon: FileText, current: pathname === "/secretary/record-sales" },
         { name: "Registration", href: "/secretary/registration", icon: FileCheck, current: pathname === "/secretary/registration" },
         { name: "Add Customer", href: "/secretary/add-customer", icon: UserPlus, current: pathname === "/secretary/add-customer" },

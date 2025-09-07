@@ -8,7 +8,6 @@ const laborItemSchema = z.object({
   expenses: z.number().min(0),
   mechanic: z.string().optional(),
   assignment: z.string().optional(),
-  remarks: z.string().optional(),
   status: z.string().optional(),
 });
 
@@ -195,6 +194,29 @@ export const orderRequisitionRouter = createTRPCRouter({
     .mutation(({ ctx, input }) => {
       return ctx.db.orderRequisition.delete({
         where: { id: input.id },
+      });
+    }),
+
+  updateLaborItemStatus: protectedProcedure
+    .input(
+      z.object({
+        laborItemId: z.string(),
+        status: z.enum(["approved", "disapproved"]),
+      })
+    )
+    .mutation(({ ctx, input }) => {
+      return ctx.db.orderLaborItem.update({
+        where: { id: input.laborItemId },
+        data: { status: input.status },
+      });
+    }),
+
+  getLaborItems: protectedProcedure
+    .input(z.object({ orderRequisitionId: z.string() }))
+    .query(({ ctx, input }) => {
+      return ctx.db.orderLaborItem.findMany({
+        where: { orderRequisitionId: input.orderRequisitionId },
+        orderBy: { itemNumber: "asc" },
       });
     }),
 });
