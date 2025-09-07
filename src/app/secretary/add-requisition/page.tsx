@@ -46,8 +46,10 @@ interface OrderFormData {
 export default function AddRequisitionPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isLaborFormOpen, setIsLaborFormOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
+  const [viewOrderId, setViewOrderId] = useState<string>("");
   const [selectedLaborItem, setSelectedLaborItem] = useState<{
     id: string;
     itemNumber: number;
@@ -78,6 +80,18 @@ export default function AddRequisitionPage() {
     { enabled: !!selectedOrderId && isEditDialogOpen }
   );
 
+  // Query for viewing order details
+  const { data: viewOrder } = api.orderRequisition.getById.useQuery(
+    { id: viewOrderId },
+    { enabled: !!viewOrderId && isViewDialogOpen }
+  );
+
+  // Query for viewing order's labor items
+  const { data: viewLaborItems } = api.orderRequisition.getLaborItems.useQuery(
+    { orderRequisitionId: viewOrderId },
+    { enabled: !!viewOrderId && isViewDialogOpen }
+  );
+
   // Debug: Log the labor items data
   console.log("Labor items data:", laborItems);
 
@@ -92,6 +106,12 @@ export default function AddRequisitionPage() {
   const handleEditOrder = (orderId: string) => {
     setSelectedOrderId(orderId);
     setIsEditDialogOpen(true);
+  };
+
+  // Function to handle opening view dialog
+  const handleViewOrder = (orderId: string) => {
+    setViewOrderId(orderId);
+    setIsViewDialogOpen(true);
   };
 
   // Function to handle status update
@@ -273,21 +293,6 @@ export default function AddRequisitionPage() {
 
   const calculateOverallTotal = () => {
     return calculateTotalLabor() + calculateTotalMaterial();
-  };
-
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      PENDING: "secondary",
-      IN_PROGRESS: "default",
-      COMPLETED: "default",
-      CANCELLED: "destructive",
-    } as const;
-
-    return (
-      <Badge variant={variants[status as keyof typeof variants] ?? "secondary"}>
-        {status}
-      </Badge>
-    );
   };
 
   return (
@@ -668,6 +673,202 @@ export default function AddRequisitionPage() {
             onClose={() => setIsLaborFormOpen(false)}
             selectedLaborItem={selectedLaborItem}
           />
+
+          {/* View Order Requisition Dialog */}
+          <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>View Order Requisition</DialogTitle>
+              </DialogHeader>
+
+              {viewOrder && (
+                <div className="space-y-6">
+                  {/* Header Information */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Order Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label>OR Number</Label>
+                        <div className="p-2 bg-muted rounded-md">
+                          {viewOrder.generatedOrNumber ?? "System generated"}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Customer</Label>
+                        <div className="p-2 bg-muted rounded-md">
+                          {viewOrder.customer.customerName}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Date</Label>
+                        <div className="p-2 bg-muted rounded-md">
+                          {new Date(viewOrder.orderDate).toLocaleDateString()}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Make</Label>
+                        <div className="p-2 bg-muted rounded-md">
+                          {viewOrder.make}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Plate #</Label>
+                        <div className="p-2 bg-muted rounded-md">
+                          {viewOrder.plateNumber}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Engine #</Label>
+                        <div className="p-2 bg-muted rounded-md">
+                          {viewOrder.engineNumber}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Labor & Services Section */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Labor & Services</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {viewLaborItems && viewLaborItems.length > 0 ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-16">Item</TableHead>
+                              <TableHead>Description</TableHead>
+                              <TableHead className="w-32">Expenses</TableHead>
+                              <TableHead className="w-32">Mechanic</TableHead>
+                              <TableHead className="w-32">Assignment</TableHead>
+                              <TableHead className="w-32">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {viewLaborItems.map((item) => (
+                              <TableRow key={item.id}>
+                                <TableCell className="font-medium">{item.itemNumber}</TableCell>
+                                <TableCell>{item.description}</TableCell>
+                                <TableCell>₱{(typeof item.expenses === 'object' && 'toNumber' in item.expenses ? item.expenses.toNumber() : Number(item.expenses)).toFixed(2)}</TableCell>
+                                <TableCell>
+                                  <div className="text-sm">
+                                    {item.mechanic ?? "-"}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {item.assignment ? (
+                                    <Badge variant={item.assignment === 'Outside Labor' ? 'secondary' : 'default'}>
+                                      {item.assignment}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground">-</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge 
+                                    variant={
+                                      item.status === 'approved' ? 'default' : 
+                                      item.status === 'disapproved' ? 'destructive' : 
+                                      'secondary'
+                                    }
+                                  >
+                                    {item.status ?? "Pending"}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            <TableRow>
+                              <TableCell colSpan={2} className="font-semibold">TOTAL Labor and Services</TableCell>
+                              <TableCell className="font-semibold">
+                                ₱{viewLaborItems.reduce((sum, item) => 
+                                  sum + (typeof item.expenses === 'object' && 'toNumber' in item.expenses ? item.expenses.toNumber() : Number(item.expenses)), 0
+                                ).toFixed(2)}
+                              </TableCell>
+                              <TableCell colSpan={3}></TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <div className="text-center text-muted-foreground py-8">
+                          No labor items found.
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Parts & Materials Section */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Parts & Materials</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {viewOrder.materialItems && viewOrder.materialItems.length > 0 ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-16">Item</TableHead>
+                              <TableHead className="w-24">QTY.</TableHead>
+                              <TableHead>Description</TableHead>
+                              <TableHead className="w-32">Expenses</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {viewOrder.materialItems.map((item) => (
+                              <TableRow key={item.id}>
+                                <TableCell className="font-medium">{item.itemNumber}</TableCell>
+                                <TableCell>{item.quantity}</TableCell>
+                                <TableCell>{item.description}</TableCell>
+                                <TableCell>₱{(typeof item.expenses === 'object' && 'toNumber' in item.expenses ? item.expenses.toNumber() : Number(item.expenses)).toFixed(2)}</TableCell>
+                              </TableRow>
+                            ))}
+                            <TableRow>
+                              <TableCell colSpan={3} className="font-semibold">TOTAL Parts and Materials</TableCell>
+                              <TableCell className="font-semibold">
+                                ₱{viewOrder.materialItems.reduce((sum, item) => 
+                                  sum + (typeof item.expenses === 'object' && 'toNumber' in item.expenses ? item.expenses.toNumber() : Number(item.expenses)), 0
+                                ).toFixed(2)}
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <div className="text-center text-muted-foreground py-8">
+                          No material items found.
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Total Section */}
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex justify-end">
+                        <div className="text-right">
+                          <div className="text-2xl font-bold">
+                            OVER ALL TOTAL: ₱{Number(viewOrder.overallTotal).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-2">
+                    <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Orders Table */}
@@ -684,7 +885,6 @@ export default function AddRequisitionPage() {
                   <TableHead>Contractor</TableHead>
                   <TableHead>Vehicle</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -707,11 +907,14 @@ export default function AddRequisitionPage() {
                         </div>
                       </TableCell>
                       <TableCell>{new Date(order.orderDate).toLocaleDateString()}</TableCell>
-                      <TableCell>{getStatusBadge(order.status)}</TableCell>
                       <TableCell className="font-medium">₱{Number(order.overallTotal).toFixed(2)}</TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleViewOrder(order.id)}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button 
