@@ -51,6 +51,15 @@ export default function LaborRepairFormDialog({
     { date: new Date(), amount: 0, balance: 0 }
   ]);
 
+  // Query to get the order requisition data based on the selected labor item
+  const { data: orderRequisitionData } = api.orderRequisition.getByLaborItemId.useQuery(
+    { laborItemId: selectedLaborItem?.id ?? "" },
+    { 
+      enabled: !!selectedLaborItem?.id && isOpen,
+      refetchOnWindowFocus: false,
+    }
+  );
+
   // Mutation for creating labor repair form
   const createLaborRepairFormMutation = api.laborRepairForm.create.useMutation({
     onSuccess: () => {
@@ -74,22 +83,20 @@ export default function LaborRepairFormDialog({
     },
   });
 
-  // Initialize form data when selectedLaborItem changes
+  // Initialize form data when selectedLaborItem or orderRequisitionData changes
   useEffect(() => {
-    if (selectedLaborItem && isOpen) {
+    if (selectedLaborItem && isOpen && orderRequisitionData) {
       setFormData({
-        contractorName: selectedLaborItem.mechanic ?? "Sherwin",
-        make: "Isuzu Giga", // This should come from the order requisition
-        plateNumber: "CAN 8868", // This should come from the order requisition
-        engineNumber: "6WF1", // This should come from the order requisition
-        amount: typeof selectedLaborItem.expenses === 'object' && 'toNumber' in selectedLaborItem.expenses 
-          ? selectedLaborItem.expenses.toNumber() 
-          : Number(selectedLaborItem.expenses) || 0,
-        orNumber: "1000000000",
+        contractorName: selectedLaborItem.mechanic ?? orderRequisitionData.contractor.contractorName,
+        make: orderRequisitionData.make,
+        plateNumber: orderRequisitionData.plateNumber,
+        engineNumber: orderRequisitionData.engineNumber,
+        amount: 0,
+        orNumber: orderRequisitionData.generatedOrNumber ?? "1000000000",
         scopeOfWorkDetails: "",
       });
     }
-  }, [selectedLaborItem, isOpen]);
+  }, [selectedLaborItem, isOpen, orderRequisitionData]);
 
   const handleFormDataChange = (field: string, value: string | number) => {
     setFormData(prev => ({
@@ -204,7 +211,7 @@ export default function LaborRepairFormDialog({
 
         <div className="space-y-6">
           {/* Header Information */}
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -290,18 +297,6 @@ export default function LaborRepairFormDialog({
                   value={formData.orNumber}
                   onChange={(e) => handleFormDataChange('orNumber', e.target.value)}
                 />
-              </div>
-            </div>
-
-            <div className="border-l pl-6">
-              <div className="text-sm space-y-2">
-                <div className="font-semibold">CA % = (total cash advance / amount) × 100%</div>
-                <div className="text-right">
-                  {formData.amount > 0 ? (calculateTotalCashAdvance() / formData.amount).toFixed(9) : '0'}
-                </div>
-                <div className="text-red-600 text-sm mt-4">
-                  If the CA % is more than 50% - dapat mag <span className="font-bold">RED</span>
-                </div>
               </div>
             </div>
           </div>

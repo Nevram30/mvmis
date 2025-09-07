@@ -122,7 +122,6 @@ export default function AddRequisitionPage() {
   };
 
 
-
   // Function to handle contractor selection and automatically set assignee
   const handleContractorChange = (laborIndex: number, contractorId: string) => {
     const selectedContractor = contractors?.find(c => c.id === contractorId);

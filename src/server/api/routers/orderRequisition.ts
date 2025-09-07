@@ -219,4 +219,37 @@ export const orderRequisitionRouter = createTRPCRouter({
         orderBy: { itemNumber: "asc" },
       });
     }),
+
+  getByLaborItemId: protectedProcedure
+    .input(z.object({ laborItemId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // First find the labor item to get the order requisition ID
+      const laborItem = await ctx.db.orderLaborItem.findUnique({
+        where: { id: input.laborItemId },
+        select: { orderRequisitionId: true },
+      });
+
+      if (!laborItem) {
+        throw new Error("Labor item not found");
+      }
+
+      // Then get the full order requisition data
+      return ctx.db.orderRequisition.findUnique({
+        where: { id: laborItem.orderRequisitionId },
+        include: {
+          customer: {
+            select: {
+              id: true,
+              customerName: true,
+            },
+          },
+          contractor: {
+            select: {
+              id: true,
+              contractorName: true,
+            },
+          },
+        },
+      });
+    }),
 });
