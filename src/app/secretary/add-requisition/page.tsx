@@ -9,9 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "~/components/ui/dialog";
 import { Badge } from "~/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
-import { Plus, Edit, Trash2, Eye } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { api } from "~/trpc/react";
 import DashboardLayout from "~/app/_components/dashboard-layout";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
+import { DialogDescription, DialogFooter } from "~/components/ui/dialog";
 
 import LaborRepairFormDialog from "~/components/LaborRepairFormDialog";
 
@@ -48,8 +50,17 @@ export default function AddRequisitionPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isLaborFormOpen, setIsLaborFormOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [viewOrderId, setViewOrderId] = useState<string>("");
+  const [orderToDelete, setOrderToDelete] = useState<{
+    id: string;
+    orderNumber: string;
+  } | null>(null);
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
   const [selectedLaborItem, setSelectedLaborItem] = useState<{
     id: string;
     itemNumber: number;
@@ -73,6 +84,29 @@ export default function AddRequisitionPage() {
   const { data: contractors } = api.contractor.getAll.useQuery();
   const { data: orders, refetch: refetchOrders } = api.orderRequisition.getAll.useQuery();
   console.log("orders:", orders);
+  
+  // Mutation for deleting order requisition
+  const deleteOrderMutation = api.orderRequisition.delete.useMutation({
+    onSuccess: () => {
+      setNotification({
+        type: 'success',
+        message: 'Order requisition deleted successfully'
+      });
+      setIsDeleteDialogOpen(false);
+      setOrderToDelete(null);
+      void refetchOrders();
+      // Auto-hide notification after 5 seconds
+      setTimeout(() => setNotification(null), 5000);
+    },
+    onError: (error) => {
+      setNotification({
+        type: 'error',
+        message: `Failed to delete order requisition: ${error.message}`
+      });
+      // Auto-hide notification after 5 seconds
+      setTimeout(() => setNotification(null), 5000);
+    },
+  });
   
   // Query for labor items when editing
   const { data: laborItems, refetch: refetchLaborItems } = api.orderRequisition.getLaborItems.useQuery(
@@ -139,6 +173,23 @@ export default function AddRequisitionPage() {
   }) => {
     setSelectedLaborItem(laborItem);
     setIsLaborFormOpen(true);
+  };
+
+  // Function to handle deleting order requisition
+  const handleDeleteOrder = (orderId: string, orderNumber: string) => {
+    setOrderToDelete({ id: orderId, orderNumber });
+    setIsDeleteDialogOpen(true);
+  };
+
+  // Function to confirm deletion
+  const handleConfirmDelete = async () => {
+    if (orderToDelete) {
+      try {
+        await deleteOrderMutation.mutateAsync({ id: orderToDelete.id });
+      } catch (error) {
+        console.error("Error deleting order requisition:", error);
+      }
+    }
   };
 
 
@@ -298,6 +349,33 @@ export default function AddRequisitionPage() {
   return (
     <DashboardLayout allowedRoles={["SECRETARY"]}>
       <div className="container mx-auto p-6 space-y-6">
+        {/* Notification */}
+        {notification && (
+          <Alert 
+            variant={notification.type === 'error' ? 'destructive' : 'default'}
+            className="mb-4"
+          >
+            {notification.type === 'success' ? (
+              <CheckCircle className="h-4 w-4" />
+            ) : (
+              <XCircle className="h-4 w-4" />
+            )}
+            <AlertTitle>
+              {notification.type === 'success' ? 'Success' : 'Error'}
+            </AlertTitle>
+            <AlertDescription>
+              {notification.message}
+            </AlertDescription>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-2 top-2 h-6 w-6 p-0"
+              onClick={() => setNotification(null)}
+            >
+              ×
+            </Button>
+          </Alert>
+        )}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Order Requisitions</h1>
@@ -869,6 +947,43 @@ export default function AddRequisitionPage() {
               )}
             </DialogContent>
           </Dialog>
+
+          {/* Delete Confirmation Dialog */}
+          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-5 w-5" />
+                  Confirm Deletion
+                </DialogTitle>
+                <DialogDescription className="text-left">
+                  Are you sure you want to delete Order Requisition{" "}
+                  <span className="font-semibold">{orderToDelete?.orderNumber}</span>?
+                  <br />
+                  <br />
+                  <span className="text-destructive font-medium">
+                    This action cannot be undone.
+                  </span>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDeleteDialogOpen(false)}
+                  disabled={deleteOrderMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleConfirmDelete}
+                  disabled={deleteOrderMutation.isPending}
+                >
+                  {deleteOrderMutation.isPending ? "Deleting..." : "Delete"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Orders Table */}
@@ -924,7 +1039,12 @@ export default function AddRequisitionPage() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDeleteOrder(order.id, order.generatedOrNumber ?? "System generated")}
+                            disabled={deleteOrderMutation.isPending}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
