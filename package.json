@@ -6,7 +6,7 @@
   "scripts": {
     "build": "next build",
     "check": "next lint && tsc --noEmit",
-    "db": "npm run db:generate && npm run db:push && npm run db:migrate && npm run db:migrate:dev",
+    "db": "npm run db:migrate && npm run db:migrate:dev && npm run db:generate && npm run db:push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
