@@ -83,7 +83,7 @@ const getNavigationItems = (role: UserRole, pathname: string): NavigationItem[] 
     case "PROPRIETOR":
       return [
         { name: "Dashboard", href: "/proprietor", icon: Home, current: pathname === "/proprietor" },
-        { name: "Analytics", href: "/proprietor/analytics", icon: TrendingUp, current: pathname === "/proprietor/analytics" },
+        { name: "Order Requisition", href: "/proprietor/view-order-req", icon: TrendingUp, current: pathname === "/proprietor/view-order-req" },
         { name: "Finances", href: "/proprietor/finances", icon: CreditCard, current: pathname === "/proprietor/finances" },
         { name: "Staff Management", href: "/proprietor/staff", icon: Users, current: pathname === "/proprietor/staff" },
         { name: "Business Reports", href: "/proprietor/reports", icon: FileText, current: pathname === "/proprietor/reports" },

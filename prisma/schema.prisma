@@ -211,6 +211,7 @@ model OrderLaborItem {
   mechanic              String?
   assignment            String?
   status                String?
+  notes                 String?
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
 

@@ -84,7 +84,7 @@ export default function AddRequisitionPage() {
   const { data: contractors } = api.contractor.getAll.useQuery();
   const { data: orders, refetch: refetchOrders } = api.orderRequisition.getAll.useQuery();
   console.log("orders:", orders);
-  
+
   // Mutation for deleting order requisition
   const deleteOrderMutation = api.orderRequisition.delete.useMutation({
     onSuccess: () => {
@@ -107,7 +107,7 @@ export default function AddRequisitionPage() {
       setTimeout(() => setNotification(null), 5000);
     },
   });
-  
+
   // Query for labor items when editing
   const { data: laborItems, refetch: refetchLaborItems } = api.orderRequisition.getLaborItems.useQuery(
     { orderRequisitionId: selectedOrderId },
@@ -196,13 +196,13 @@ export default function AddRequisitionPage() {
   // Function to handle contractor selection and automatically set assignee
   const handleContractorChange = (laborIndex: number, contractorId: string) => {
     const selectedContractor = contractors?.find(c => c.id === contractorId);
-    
+
     updateLaborItem(laborIndex, 'contractor', contractorId);
-    
+
     if (selectedContractor) {
       // Set the mechanic field to the contractor's name (this is what gets saved to DB)
       updateLaborItem(laborIndex, 'assignee', selectedContractor.contractorName);
-      
+
       // Set the assignment type based on contractor's assignment
       const assignmentText = selectedContractor.assignment === 'OUTSIDE_LABOR' ? 'Outside Labor' : 'In-house Labor';
       updateLaborItem(laborIndex, 'assignment', assignmentText);
@@ -213,7 +213,7 @@ export default function AddRequisitionPage() {
     }
   };
 
-  
+
   const createOrderMutation = api.orderRequisition.create.useMutation({
     onSuccess: () => {
       void refetchOrders();
@@ -351,7 +351,7 @@ export default function AddRequisitionPage() {
       <div className="container mx-auto p-6 space-y-6">
         {/* Notification */}
         {notification && (
-          <Alert 
+          <Alert
             variant={notification.type === 'error' ? 'destructive' : 'default'}
             className="mb-4"
           >
@@ -381,7 +381,7 @@ export default function AddRequisitionPage() {
             <h1 className="text-3xl font-bold">Order Requisitions</h1>
             <p className="text-muted-foreground">Manage vehicle service order requisitions</p>
           </div>
-          
+
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -674,7 +674,8 @@ export default function AddRequisitionPage() {
                             <TableHead className="w-32">Expenses</TableHead>
                             <TableHead className="w-32">Contractor</TableHead>
                             <TableHead className="w-32">Assignee</TableHead>
-                            <TableHead className="w-40">Actions</TableHead>
+                            <TableHead className="w-40">Remarks</TableHead>
+                            <TableHead className="w-40">Status</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -707,21 +708,24 @@ export default function AddRequisitionPage() {
                                     Create Labor Form
                                   </Button>
                                 ) : item.assignment === 'In-house Labor' ? (
-                                  <Select
-                                    value={item.status ?? ""}
-                                    onValueChange={(value) => handleStatusUpdate(item.id, value as "approved" | "disapproved")}
-                                  >
-                                    <SelectTrigger className="w-full">
-                                      <SelectValue placeholder="Select Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="approved">Approved</SelectItem>
-                                      <SelectItem value="disapproved">Disapproved</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                  <span className="text-muted-foreground text-sm">No remarks</span>
                                 ) : (
                                   <span className="text-muted-foreground text-sm">No assignment</span>
                                 )}
+                              </TableCell>
+                              <TableCell>
+                                <Select
+                                  value={item.status ?? ""}
+                                  onValueChange={(value) => handleStatusUpdate(item.id, value as "approved" | "disapproved")}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select Status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="approved">Approved</SelectItem>
+                                    <SelectItem value="disapproved">Disapproved</SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -746,7 +750,7 @@ export default function AddRequisitionPage() {
           </Dialog>
 
           {/* Labor Repair Form Dialog */}
-          <LaborRepairFormDialog 
+          <LaborRepairFormDialog
             isOpen={isLaborFormOpen}
             onClose={() => setIsLaborFormOpen(false)}
             selectedLaborItem={selectedLaborItem}
@@ -850,11 +854,11 @@ export default function AddRequisitionPage() {
                                   )}
                                 </TableCell>
                                 <TableCell>
-                                  <Badge 
+                                  <Badge
                                     variant={
-                                      item.status === 'approved' ? 'default' : 
-                                      item.status === 'disapproved' ? 'destructive' : 
-                                      'secondary'
+                                      item.status === 'approved' ? 'default' :
+                                        item.status === 'disapproved' ? 'destructive' :
+                                          'secondary'
                                     }
                                   >
                                     {item.status ?? "Pending"}
@@ -865,7 +869,7 @@ export default function AddRequisitionPage() {
                             <TableRow>
                               <TableCell colSpan={2} className="font-semibold">TOTAL Labor and Services</TableCell>
                               <TableCell className="font-semibold">
-                                ₱{viewLaborItems.reduce((sum, item) => 
+                                ₱{viewLaborItems.reduce((sum, item) =>
                                   sum + (typeof item.expenses === 'object' && 'toNumber' in item.expenses ? item.expenses.toNumber() : Number(item.expenses)), 0
                                 ).toFixed(2)}
                               </TableCell>
@@ -909,7 +913,7 @@ export default function AddRequisitionPage() {
                             <TableRow>
                               <TableCell colSpan={3} className="font-semibold">TOTAL Parts and Materials</TableCell>
                               <TableCell className="font-semibold">
-                                ₱{viewOrder.materialItems.reduce((sum, item) => 
+                                ₱{viewOrder.materialItems.reduce((sum, item) =>
                                   sum + (typeof item.expenses === 'object' && 'toNumber' in item.expenses ? item.expenses.toNumber() : Number(item.expenses)), 0
                                 ).toFixed(2)}
                               </TableCell>
@@ -1002,6 +1006,7 @@ export default function AddRequisitionPage() {
                   <TableHead>Date</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Actions</TableHead>
+                  <TableHead>Orders</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1025,22 +1030,22 @@ export default function AddRequisitionPage() {
                       <TableCell className="font-medium">₱{Number(order.overallTotal).toFixed(2)}</TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleViewOrder(order.id)}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleEditOrder(order.id)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleDeleteOrder(order.id, order.generatedOrNumber ?? "System generated")}
                             disabled={deleteOrderMutation.isPending}
@@ -1048,6 +1053,26 @@ export default function AddRequisitionPage() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {/* Check if customer name contains TCX */}
+                        {order.customer.customerName.toUpperCase().includes('TCX') ? (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            Work Order
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            Job Order
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
