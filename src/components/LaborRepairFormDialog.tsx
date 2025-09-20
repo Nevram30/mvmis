@@ -30,12 +30,30 @@ interface LaborRepairFormDialogProps {
     assignment?: string | null;
     status?: string | null;
   } | null;
+  existingForm?: {
+    contractorName: string;
+    make: string;
+    plateNumber: string;
+    engineNumber: string;
+    amount: number;
+    orNumber?: string;
+    scopeOfWorkDetails?: string;
+    cashAdvances?: Array<{
+      id: string;
+      date: Date;
+      amount: number;
+      balance: number;
+    }>;
+  } | null;
+  onFormCreated?: () => void; // Add callback for when form is created
 }
 
 export default function LaborRepairFormDialog({ 
   isOpen, 
   onClose, 
-  selectedLaborItem 
+  selectedLaborItem,
+  existingForm,
+  onFormCreated
 }: LaborRepairFormDialogProps) {
   const [formData, setFormData] = useState({
     contractorName: "",
@@ -64,6 +82,10 @@ export default function LaborRepairFormDialog({
   const createLaborRepairFormMutation = api.laborRepairForm.create.useMutation({
     onSuccess: () => {
       alert("Labor Repair Form created successfully!");
+      // Call the callback to refresh the labor forms data
+      if (onFormCreated) {
+        onFormCreated();
+      }
       onClose();
       // Reset form
       setFormData({
@@ -85,18 +107,43 @@ export default function LaborRepairFormDialog({
 
   // Initialize form data when selectedLaborItem or orderRequisitionData changes
   useEffect(() => {
-    if (selectedLaborItem && isOpen && orderRequisitionData) {
-      setFormData({
-        contractorName: selectedLaborItem.mechanic ?? orderRequisitionData.contractor.contractorName,
-        make: orderRequisitionData.make,
-        plateNumber: orderRequisitionData.plateNumber,
-        engineNumber: orderRequisitionData.engineNumber,
-        amount: 0,
-        orNumber: orderRequisitionData.generatedOrNumber ?? "1000000000",
-        scopeOfWorkDetails: "",
-      });
+    if (selectedLaborItem && isOpen) {
+      if (existingForm) {
+        // Populate with existing form data
+        setFormData({
+          contractorName: existingForm.contractorName,
+          make: existingForm.make,
+          plateNumber: existingForm.plateNumber,
+          engineNumber: existingForm.engineNumber,
+          amount: existingForm.amount,
+        orNumber: existingForm.orNumber ?? "",
+        scopeOfWorkDetails: existingForm.scopeOfWorkDetails ?? "",
+        });
+        
+        // Populate cash advances
+        if (existingForm.cashAdvances && existingForm.cashAdvances.length > 0) {
+          setCashAdvances(existingForm.cashAdvances.map((ca) => ({
+            id: ca.id,
+            date: new Date(ca.date),
+            amount: Number(ca.amount),
+            balance: Number(ca.balance),
+          })));
+        }
+      } else if (orderRequisitionData) {
+        // Initialize for new form
+        setFormData({
+          contractorName: selectedLaborItem.mechanic ?? orderRequisitionData.contractor.contractorName,
+          make: orderRequisitionData.make,
+          plateNumber: orderRequisitionData.plateNumber,
+          engineNumber: orderRequisitionData.engineNumber,
+          amount: 0,
+          orNumber: orderRequisitionData.generatedOrNumber ?? "1000000000",
+          scopeOfWorkDetails: "",
+        });
+        setCashAdvances([{ date: new Date(), amount: 0, balance: 0 }]);
+      }
     }
-  }, [selectedLaborItem, isOpen, orderRequisitionData]);
+  }, [selectedLaborItem, isOpen, orderRequisitionData, existingForm]);
 
   const handleFormDataChange = (field: string, value: string | number) => {
     setFormData(prev => ({
@@ -221,6 +268,7 @@ export default function LaborRepairFormDialog({
                     value={formData.contractorName}
                     onChange={(e) => handleFormDataChange('contractorName', e.target.value)}
                     className="font-semibold"
+                    readOnly={!!existingForm}
                   />
                 </div>
                 <div>
@@ -242,6 +290,7 @@ export default function LaborRepairFormDialog({
                     value={formData.make}
                     onChange={(e) => handleFormDataChange('make', e.target.value)}
                     className="font-semibold"
+                    readOnly={!!existingForm}
                   />
                 </div>
                 <div>
@@ -253,6 +302,7 @@ export default function LaborRepairFormDialog({
                     value={formData.amount}
                     onChange={(e) => handleFormDataChange('amount', parseFloat(e.target.value) || 0)}
                     className="text-right"
+                    readOnly={!!existingForm}
                   />
                 </div>
               </div>
@@ -265,6 +315,7 @@ export default function LaborRepairFormDialog({
                     value={formData.plateNumber}
                     onChange={(e) => handleFormDataChange('plateNumber', e.target.value)}
                     className="font-semibold underline"
+                    readOnly={!!existingForm}
                   />
                 </div>
                 <div>
@@ -285,6 +336,7 @@ export default function LaborRepairFormDialog({
                     id="engine"
                     value={formData.engineNumber}
                     onChange={(e) => handleFormDataChange('engineNumber', e.target.value)}
+                    readOnly={!!existingForm}
                   />
                 </div>
                 <div></div>
@@ -296,6 +348,7 @@ export default function LaborRepairFormDialog({
                   id="orNumber"
                   value={formData.orNumber}
                   onChange={(e) => handleFormDataChange('orNumber', e.target.value)}
+                  readOnly={!!existingForm}
                 />
               </div>
             </div>
@@ -333,6 +386,7 @@ export default function LaborRepairFormDialog({
                     onChange={(e) => handleFormDataChange('scopeOfWorkDetails', e.target.value)}
                     placeholder="Enter detailed description of the work to be performed..."
                     className="mt-2 min-h-[120px]"
+                    readOnly={!!existingForm}
                   />
                 </div>
 
@@ -348,10 +402,12 @@ export default function LaborRepairFormDialog({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Cash Advance</CardTitle>
-              <Button onClick={addCashAdvance} size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Cash Advance
-              </Button>
+              {!existingForm && (
+                <Button onClick={addCashAdvance} size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Cash Advance
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               <Table>
@@ -372,6 +428,7 @@ export default function LaborRepairFormDialog({
                           value={advance.date.toISOString().split('T')[0]}
                           onChange={(e) => updateCashAdvance(index, 'date', new Date(e.target.value))}
                           className="w-full"
+                          readOnly={!!existingForm}
                         />
                       </TableCell>
                       <TableCell className="text-right">
@@ -381,6 +438,7 @@ export default function LaborRepairFormDialog({
                           value={advance.amount}
                           onChange={(e) => updateCashAdvance(index, 'amount', parseFloat(e.target.value) || 0)}
                           className="text-right"
+                          readOnly={!!existingForm}
                         />
                       </TableCell>
                       <TableCell className="text-right">
@@ -397,7 +455,7 @@ export default function LaborRepairFormDialog({
                           variant="ghost"
                           size="sm"
                           onClick={() => removeCashAdvance(index)}
-                          disabled={cashAdvances.length === 1}
+                          disabled={cashAdvances.length === 1 || !!existingForm}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -448,14 +506,16 @@ export default function LaborRepairFormDialog({
           {/* Action Buttons */}
           <div className="flex justify-end space-x-2 mt-8">
             <Button variant="outline" onClick={onClose}>
-              Cancel
+              {existingForm ? "Close" : "Cancel"}
             </Button>
-            <Button 
-              onClick={handleSubmit}
-              disabled={createLaborRepairFormMutation.isPending}
-            >
-              {createLaborRepairFormMutation.isPending ? "Saving..." : "Save Labor Form"}
-            </Button>
+            {!existingForm && (
+              <Button 
+                onClick={handleSubmit}
+                disabled={createLaborRepairFormMutation.isPending}
+              >
+                {createLaborRepairFormMutation.isPending ? "Saving..." : "Save Labor Form"}
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "~/components/ui/dialog";
 import { Badge } from "~/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
-import { Plus, Edit, Trash2, Eye, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Trash2, Eye, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { api } from "~/trpc/react";
 import DashboardLayout from "~/app/_components/dashboard-layout";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
@@ -51,7 +51,7 @@ export default function AddRequisitionPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isLaborFormOpen, setIsLaborFormOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState<string>("");
+  const [selectedOrderId] = useState<string>("");
   const [viewOrderId, setViewOrderId] = useState<string>("");
   const [orderToDelete, setOrderToDelete] = useState<{
     id: string;
@@ -111,7 +111,10 @@ export default function AddRequisitionPage() {
   // Query for labor items when editing
   const { data: laborItems, refetch: refetchLaborItems } = api.orderRequisition.getLaborItems.useQuery(
     { orderRequisitionId: selectedOrderId },
-    { enabled: !!selectedOrderId && isEditDialogOpen }
+    { 
+      enabled: !!selectedOrderId && isEditDialogOpen,
+      refetchInterval: 5000, // Refetch every 5 seconds when dialog is open
+    }
   );
 
   // Query for viewing order details
@@ -123,8 +126,44 @@ export default function AddRequisitionPage() {
   // Query for viewing order's labor items
   const { data: viewLaborItems } = api.orderRequisition.getLaborItems.useQuery(
     { orderRequisitionId: viewOrderId },
-    { enabled: !!viewOrderId && isViewDialogOpen }
+    { 
+      enabled: !!viewOrderId && isViewDialogOpen,
+      refetchInterval: 5000, // Refetch every 5 seconds when dialog is open
+    }
   );
+
+  // Query to check if labor forms exist for labor items in edit dialog
+  const { data: existingLaborForms, refetch: refetchLaborForms } = api.laborRepairForm.getAll.useQuery(
+    undefined,
+    { enabled: isEditDialogOpen || isViewDialogOpen }
+  );
+
+  // Helper function to check if a labor form exists for a labor item
+  const hasLaborForm = (laborItemId: string) => {
+    return existingLaborForms?.some(form => form.orderLaborItemId === laborItemId) ?? false;
+  };
+
+  // Helper function to check if all labor items are approved for an order
+  const areAllLaborItemsApproved = (orderId: string) => {
+    const order = orders?.find(o => o.id === orderId);
+    if (!order || !order.laborItems || order.laborItems.length === 0) {
+      return false; // No labor items or order not found
+    }
+    
+    // Check if all labor items are approved
+    return order.laborItems.every(item => item.status === 'approved');
+  };
+
+  // Helper function to check if any labor item is disapproved for an order
+  const hasDisapprovedLaborItems = (orderId: string) => {
+    const order = orders?.find(o => o.id === orderId);
+    if (!order || !order.laborItems || order.laborItems.length === 0) {
+      return false;
+    }
+    
+    // Check if any labor item is disapproved
+    return order.laborItems.some(item => item.status === 'disapproved');
+  };
 
   // Debug: Log the labor items data
   console.log("Labor items data:", laborItems);
@@ -135,12 +174,6 @@ export default function AddRequisitionPage() {
       void refetchLaborItems();
     },
   });
-
-  // Function to handle opening edit dialog
-  const handleEditOrder = (orderId: string) => {
-    setSelectedOrderId(orderId);
-    setIsEditDialogOpen(true);
-  };
 
   // Function to handle opening view dialog
   const handleViewOrder = (orderId: string) => {
@@ -674,6 +707,7 @@ export default function AddRequisitionPage() {
                             <TableHead className="w-32">Expenses</TableHead>
                             <TableHead className="w-32">Contractor</TableHead>
                             <TableHead className="w-32">Assignee</TableHead>
+                            <TableHead className="w-48">Notes</TableHead>
                             <TableHead className="w-40">Remarks</TableHead>
                             <TableHead className="w-40">Status</TableHead>
                           </TableRow>
@@ -699,14 +733,37 @@ export default function AddRequisitionPage() {
                                 )}
                               </TableCell>
                               <TableCell>
+                                <div className="text-sm max-w-48 break-words">
+                                  {item.notes ? (
+                                    <div className="p-2 bg-muted rounded-md text-xs">
+                                      {item.notes}
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground">No notes</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
                                 {item.assignment === 'Outside Labor' ? (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleOpenLaborForm(item)}
-                                    className="w-full"
-                                  >
-                                    Create Labor Form
-                                  </Button>
+                                  hasLaborForm(item.id) ? (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleOpenLaborForm(item)}
+                                      className="w-full"
+                                      variant="outline"
+                                      disabled
+                                    >
+                                      Labor Form Created
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleOpenLaborForm(item)}
+                                      className="w-full"
+                                    >
+                                      Create Labor Form
+                                    </Button>
+                                  )
                                 ) : item.assignment === 'In-house Labor' ? (
                                   <span className="text-muted-foreground text-sm">No remarks</span>
                                 ) : (
@@ -754,6 +811,7 @@ export default function AddRequisitionPage() {
             isOpen={isLaborFormOpen}
             onClose={() => setIsLaborFormOpen(false)}
             selectedLaborItem={selectedLaborItem}
+            onFormCreated={() => void refetchLaborForms()}
           />
 
           {/* View Order Requisition Dialog */}
@@ -830,6 +888,8 @@ export default function AddRequisitionPage() {
                               <TableHead className="w-32">Expenses</TableHead>
                               <TableHead className="w-32">Mechanic</TableHead>
                               <TableHead className="w-32">Assignment</TableHead>
+                              <TableHead className="w-48">Notes</TableHead>
+                              <TableHead className="w-32">Remarks</TableHead>
                               <TableHead className="w-32">Status</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -851,6 +911,44 @@ export default function AddRequisitionPage() {
                                     </Badge>
                                   ) : (
                                     <span className="text-muted-foreground">-</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm max-w-48 break-words">
+                                    {item.notes ? (
+                                      <div className="p-2 bg-muted rounded-md text-xs">
+                                        {item.notes}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground">No notes</span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {item.assignment === 'Outside Labor' ? (
+                                    hasLaborForm(item.id) ? (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleOpenLaborForm(item)}
+                                        className="w-full"
+                                        variant="outline"
+                                        disabled
+                                      >
+                                        Labor Form Created
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleOpenLaborForm(item)}
+                                        className="w-full"
+                                      >
+                                        Create Labor Form
+                                      </Button>
+                                    )
+                                  ) : item.assignment === 'In-house Labor' ? (
+                                    <span className="text-muted-foreground text-sm">No remarks</span>
+                                  ) : (
+                                    <span className="text-muted-foreground text-sm">No assignment</span>
                                   )}
                                 </TableCell>
                                 <TableCell>
@@ -1040,13 +1138,6 @@ export default function AddRequisitionPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleEditOrder(order.id)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
                             onClick={() => handleDeleteOrder(order.id, order.generatedOrNumber ?? "System generated")}
                             disabled={deleteOrderMutation.isPending}
                           >
@@ -1057,21 +1148,65 @@ export default function AddRequisitionPage() {
                       <TableCell>
                         {/* Check if customer name contains TCX */}
                         {order.customer.customerName.toUpperCase().includes('TCX') ? (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700"
-                          >
-                            Work Order
-                          </Button>
+                          <div className="flex flex-col space-y-1">
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className={`${
+                                hasDisapprovedLaborItems(order.id) 
+                                  ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed" 
+                                  : areAllLaborItemsApproved(order.id)
+                                    ? "bg-blue-600 hover:bg-blue-700"
+                                    : "bg-blue-400 hover:bg-blue-500"
+                              }`}
+                              disabled={hasDisapprovedLaborItems(order.id)}
+                              title={
+                                hasDisapprovedLaborItems(order.id) 
+                                  ? "Cannot create Work Order - Some labor items are disapproved"
+                                  : !areAllLaborItemsApproved(order.id)
+                                    ? "Waiting for all labor items to be approved"
+                                    : "All labor items approved - Ready to create Work Order"
+                              }
+                            >
+                              Work Order
+                            </Button>
+                            {hasDisapprovedLaborItems(order.id) && (
+                              <span className="text-xs text-red-600">Items disapproved</span>
+                            )}
+                            {!hasDisapprovedLaborItems(order.id) && !areAllLaborItemsApproved(order.id) && (
+                              <span className="text-xs text-yellow-600">Pending approval</span>
+                            )}
+                          </div>
                         ) : (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            Job Order
-                          </Button>
+                          <div className="flex flex-col space-y-1">
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className={`${
+                                hasDisapprovedLaborItems(order.id) 
+                                  ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed" 
+                                  : areAllLaborItemsApproved(order.id)
+                                    ? "bg-green-600 hover:bg-green-700"
+                                    : "bg-green-400 hover:bg-green-500"
+                              }`}
+                              disabled={hasDisapprovedLaborItems(order.id)}
+                              title={
+                                hasDisapprovedLaborItems(order.id) 
+                                  ? "Cannot create Job Order - Some labor items are disapproved"
+                                  : !areAllLaborItemsApproved(order.id)
+                                    ? "Waiting for all labor items to be approved"
+                                    : "All labor items approved - Ready to create Job Order"
+                              }
+                            >
+                              Job Order
+                            </Button>
+                            {hasDisapprovedLaborItems(order.id) && (
+                              <span className="text-xs text-red-600">Items disapproved</span>
+                            )}
+                            {!hasDisapprovedLaborItems(order.id) && !areAllLaborItemsApproved(order.id) && (
+                              <span className="text-xs text-yellow-600">Pending approval</span>
+                            )}
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>

@@ -211,6 +211,40 @@ export const orderRequisitionRouter = createTRPCRouter({
       });
     }),
 
+  updateLaborItemStatusAndNotes: protectedProcedure
+    .input(
+      z.object({
+        laborItemId: z.string(),
+        status: z.enum(["approved", "disapproved"]),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(({ ctx, input }) => {
+      return ctx.db.orderLaborItem.update({
+        where: { id: input.laborItemId },
+        data: { 
+          status: input.status,
+          notes: input.notes,
+        },
+      });
+    }),
+
+  updateLaborItemNotes: protectedProcedure
+    .input(
+      z.object({
+        laborItemId: z.string(),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(({ ctx, input }) => {
+      return ctx.db.orderLaborItem.update({
+        where: { id: input.laborItemId },
+        data: { 
+          notes: input.notes,
+        },
+      });
+    }),
+
   getLaborItems: protectedProcedure
     .input(z.object({ orderRequisitionId: z.string() }))
     .query(({ ctx, input }) => {

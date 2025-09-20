@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Label } from "~/components/ui/label";
@@ -8,11 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
 import { Badge } from "~/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
-import { Edit, Trash2, Eye, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Textarea } from "~/components/ui/textarea";
+import { Eye, CheckCircle, XCircle, ThumbsUp, ThumbsDown } from "lucide-react";
 import { api } from "~/trpc/react";
 import DashboardLayout from "~/app/_components/dashboard-layout";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
-import { DialogDescription, DialogFooter } from "~/components/ui/dialog";
 
 import LaborRepairFormDialog from "~/components/LaborRepairFormDialog";
 
@@ -20,13 +20,8 @@ export default function ViewOrderReqPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isLaborFormOpen, setIsLaborFormOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState<string>("");
+  const [selectedOrderId] = useState<string>("");
   const [viewOrderId, setViewOrderId] = useState<string>("");
-  const [orderToDelete, setOrderToDelete] = useState<{
-    id: string;
-    orderNumber: string;
-  } | null>(null);
   const [notification, setNotification] = useState<{
     type: 'success' | 'error';
     message: string;
@@ -40,32 +35,14 @@ export default function ViewOrderReqPage() {
     assignment?: string | null;
     status?: string | null;
   } | null>(null);
+  const [laborItemNotes, setLaborItemNotes] = useState<Record<string, string>>({});
+  
+  // Ref to store timeout IDs for debouncing
+  const debounceTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
-  const { data: orders, refetch: refetchOrders } = api.orderRequisition.getAll.useQuery();
+  const { data: orders } = api.orderRequisition.getAll.useQuery();
   console.log("orders:", orders);
 
-  // Mutation for deleting order requisition
-  const deleteOrderMutation = api.orderRequisition.delete.useMutation({
-    onSuccess: () => {
-      setNotification({
-        type: 'success',
-        message: 'Order requisition deleted successfully'
-      });
-      setIsDeleteDialogOpen(false);
-      setOrderToDelete(null);
-      void refetchOrders();
-      // Auto-hide notification after 5 seconds
-      setTimeout(() => setNotification(null), 5000);
-    },
-    onError: (error) => {
-      setNotification({
-        type: 'error',
-        message: `Failed to delete order requisition: ${error.message}`
-      });
-      // Auto-hide notification after 5 seconds
-      setTimeout(() => setNotification(null), 5000);
-    },
-  });
 
   // Query for labor items when editing
   const { data: laborItems, refetch: refetchLaborItems } = api.orderRequisition.getLaborItems.useQuery(
@@ -80,10 +57,35 @@ export default function ViewOrderReqPage() {
   );
 
   // Query for viewing order's labor items
-  const { data: viewLaborItems } = api.orderRequisition.getLaborItems.useQuery(
+  const { data: viewLaborItems, refetch: refetchViewLaborItems } = api.orderRequisition.getLaborItems.useQuery(
     { orderRequisitionId: viewOrderId },
     { enabled: !!viewOrderId && isViewDialogOpen }
   );
+
+  // Query for existing labor forms for each labor item
+  // We need to use a fixed number of hooks to avoid violating Rules of Hooks
+  const laborFormQuery1 = api.laborRepairForm.getByLaborItemId.useQuery(
+    { orderLaborItemId: viewLaborItems?.[0]?.id ?? "" },
+    { enabled: !!viewLaborItems?.[0]?.id && isViewDialogOpen }
+  );
+  const laborFormQuery2 = api.laborRepairForm.getByLaborItemId.useQuery(
+    { orderLaborItemId: viewLaborItems?.[1]?.id ?? "" },
+    { enabled: !!viewLaborItems?.[1]?.id && isViewDialogOpen }
+  );
+  const laborFormQuery3 = api.laborRepairForm.getByLaborItemId.useQuery(
+    { orderLaborItemId: viewLaborItems?.[2]?.id ?? "" },
+    { enabled: !!viewLaborItems?.[2]?.id && isViewDialogOpen }
+  );
+  const laborFormQuery4 = api.laborRepairForm.getByLaborItemId.useQuery(
+    { orderLaborItemId: viewLaborItems?.[3]?.id ?? "" },
+    { enabled: !!viewLaborItems?.[3]?.id && isViewDialogOpen }
+  );
+  const laborFormQuery5 = api.laborRepairForm.getByLaborItemId.useQuery(
+    { orderLaborItemId: viewLaborItems?.[4]?.id ?? "" },
+    { enabled: !!viewLaborItems?.[4]?.id && isViewDialogOpen }
+  );
+
+  const laborFormQueries = [laborFormQuery1, laborFormQuery2, laborFormQuery3, laborFormQuery4, laborFormQuery5];
 
   // Debug: Log the labor items data
   console.log("Labor items data:", laborItems);
@@ -95,11 +97,41 @@ export default function ViewOrderReqPage() {
     },
   });
 
-  // Function to handle opening edit dialog
-  const handleEditOrder = (orderId: string) => {
-    setSelectedOrderId(orderId);
-    setIsEditDialogOpen(true);
-  };
+  // Mutation for updating labor item status and notes
+  const updateLaborItemStatusAndNotesMutation = api.orderRequisition.updateLaborItemStatusAndNotes.useMutation({
+    onSuccess: () => {
+      setNotification({
+        type: 'success',
+        message: 'Labor item updated successfully'
+      });
+      void refetchLaborItems();
+      void refetchViewLaborItems();
+      // Auto-hide notification after 3 seconds
+      setTimeout(() => setNotification(null), 3000);
+    },
+    onError: (error) => {
+      setNotification({
+        type: 'error',
+        message: `Failed to update labor item: ${error.message}`
+      });
+      // Auto-hide notification after 5 seconds
+      setTimeout(() => setNotification(null), 5000);
+    },
+  });
+
+  // Mutation for autosaving notes only
+  const updateLaborItemNotesMutation = api.orderRequisition.updateLaborItemNotes.useMutation({
+    onSuccess: () => {
+      // Silent success - no notification for autosave
+      void refetchLaborItems();
+      void refetchViewLaborItems();
+    },
+    onError: (error) => {
+      console.error("Error autosaving notes:", error);
+      // Could show a subtle indicator that autosave failed
+    },
+  });
+
 
   // Function to handle opening view dialog
   const handleViewOrder = (orderId: string) => {
@@ -134,22 +166,109 @@ export default function ViewOrderReqPage() {
     setIsLaborFormOpen(true);
   };
 
-  // Function to handle deleting order requisition
-  const handleDeleteOrder = (orderId: string, orderNumber: string) => {
-    setOrderToDelete({ id: orderId, orderNumber });
-    setIsDeleteDialogOpen(true);
+
+  // Helper function to get labor form for a specific item
+  const getLaborFormForItem = (itemId: string) => {
+    const itemIndex = viewLaborItems?.findIndex(item => item.id === itemId) ?? -1;
+    if (itemIndex >= 0 && laborFormQueries[itemIndex]) {
+      const rawData = laborFormQueries[itemIndex].data;
+      if (!rawData) return null;
+      
+      // Transform the data to match the expected interface
+      return {
+        contractorName: rawData.contractorName,
+        make: rawData.make,
+        plateNumber: rawData.plateNumber,
+        engineNumber: rawData.engineNumber,
+        amount: typeof rawData.amount === 'object' && 'toNumber' in rawData.amount ? rawData.amount.toNumber() : Number(rawData.amount),
+        orNumber: rawData.orNumber ?? undefined,
+        scopeOfWorkDetails: rawData.scopeOfWorkDetails ?? undefined,
+        cashAdvances: rawData.cashAdvances?.map(ca => ({
+          id: ca.id,
+          date: ca.date,
+          amount: typeof ca.amount === 'object' && 'toNumber' in ca.amount ? ca.amount.toNumber() : Number(ca.amount),
+          balance: typeof ca.balance === 'object' && 'toNumber' in ca.balance ? ca.balance.toNumber() : Number(ca.balance),
+        })) ?? undefined,
+      };
+    }
+    return null;
   };
 
-  // Function to confirm deletion
-  const handleConfirmDelete = async () => {
-    if (orderToDelete) {
-      try {
-        await deleteOrderMutation.mutateAsync({ id: orderToDelete.id });
-      } catch (error) {
-        console.error("Error deleting order requisition:", error);
+  // Function to handle approval/disapproval with notes
+  const handleApprovalWithNotes = async (laborItemId: string, status: "approved" | "disapproved") => {
+    const notes = laborItemNotes[laborItemId] ?? "";
+    try {
+      await updateLaborItemStatusAndNotesMutation.mutateAsync({
+        laborItemId,
+        status,
+        notes: notes.trim() || undefined,
+      });
+    } catch (error) {
+      console.error("Error updating labor item:", error);
+    }
+  };
+
+  // Function to handle notes change with autosave
+  const handleNotesChange = (laborItemId: string, notes: string) => {
+    // Update local state immediately
+    setLaborItemNotes(prev => ({
+      ...prev,
+      [laborItemId]: notes
+    }));
+
+    // Clear existing timeout for this labor item
+    if (debounceTimeouts.current[laborItemId]) {
+      clearTimeout(debounceTimeouts.current[laborItemId]);
+    }
+
+    // Set new timeout for autosave
+    debounceTimeouts.current[laborItemId] = setTimeout(() => {
+      const currentNotes = viewLaborItems?.find(item => item.id === laborItemId)?.notes ?? "";
+      if (notes.trim() !== currentNotes) {
+        updateLaborItemNotesMutation.mutate({
+          laborItemId,
+          notes: notes.trim() || undefined,
+        });
+      }
+      // Clean up the timeout reference
+      delete debounceTimeouts.current[laborItemId];
+    }, 1000); // 1 second delay
+  };
+
+  // Function to handle immediate save on Enter key press
+  const handleNotesKeyDown = (e: React.KeyboardEvent, laborItemId: string) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault(); // Prevent new line
+      const notes = laborItemNotes[laborItemId] ?? "";
+      
+      // Save immediately if notes have changed
+      if (notes.trim() !== (viewLaborItems?.find(item => item.id === laborItemId)?.notes ?? "")) {
+        updateLaborItemNotesMutation.mutate({
+          laborItemId,
+          notes: notes.trim() || undefined,
+        });
+        
+        // Show a brief success indicator
+        setNotification({
+          type: 'success',
+          message: 'Notes saved'
+        });
+        // Auto-hide notification after 2 seconds
+        setTimeout(() => setNotification(null), 2000);
       }
     }
   };
+
+  // Initialize notes when viewLaborItems changes
+  useEffect(() => {
+    if (viewLaborItems) {
+      const initialNotes: Record<string, string> = {};
+      viewLaborItems.forEach(item => {
+        initialNotes[item.id] = item.notes ?? "";
+      });
+      setLaborItemNotes(initialNotes);
+    }
+  }, [viewLaborItems]);
 
   return (
     <DashboardLayout allowedRoles={["PROPRIETOR"]}>
@@ -291,11 +410,12 @@ export default function ViewOrderReqPage() {
           isOpen={isLaborFormOpen}
           onClose={() => setIsLaborFormOpen(false)}
           selectedLaborItem={selectedLaborItem}
+          existingForm={selectedLaborItem ? getLaborFormForItem(selectedLaborItem.id) : null}
         />
 
         {/* View Order Requisition Dialog */}
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>View Order Requisition</DialogTitle>
             </DialogHeader>
@@ -367,7 +487,10 @@ export default function ViewOrderReqPage() {
                             <TableHead className="w-32">Expenses</TableHead>
                             <TableHead className="w-32">Mechanic</TableHead>
                             <TableHead className="w-32">Assignment</TableHead>
+                            <TableHead className="w-48">Notes</TableHead>
+                            <TableHead className="w-32">Labor Form</TableHead>
                             <TableHead className="w-32">Status</TableHead>
+                            <TableHead className="w-48">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -391,6 +514,31 @@ export default function ViewOrderReqPage() {
                                 )}
                               </TableCell>
                               <TableCell>
+                                <Textarea
+                                  placeholder="Add notes... (Press Enter to save)"
+                                  value={laborItemNotes[item.id] ?? ""}
+                                  onChange={(e) => handleNotesChange(item.id, e.target.value)}
+                                  onKeyDown={(e) => handleNotesKeyDown(e, item.id)}
+                                  className="min-h-[60px] text-sm"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                {item.assignment === 'Outside Labor' ? (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleOpenLaborForm(item)}
+                                    variant="outline"
+                                    className="w-full"
+                                  >
+                                    View Form
+                                  </Button>
+                                ) : item.assignment === 'In-house Labor' ? (
+                                  <span className="text-muted-foreground text-xs">No form required</span>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">No assignment</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
                                 <Badge
                                   variant={
                                     item.status === 'approved' ? 'default' :
@@ -401,6 +549,27 @@ export default function ViewOrderReqPage() {
                                   {item.status ?? "Pending"}
                                 </Badge>
                               </TableCell>
+                              <TableCell>
+                                <div className="flex space-x-1">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleApprovalWithNotes(item.id, "approved")}
+                                    disabled={updateLaborItemStatusAndNotesMutation.isPending}
+                                    className="bg-green-600 hover:bg-green-700 px-2"
+                                  >
+                                    <ThumbsUp className="h-3 w-3" /> approved
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleApprovalWithNotes(item.id, "disapproved")}
+                                    disabled={updateLaborItemStatusAndNotesMutation.isPending}
+                                    className="px-2"
+                                  >
+                                    <ThumbsDown className="h-3 w-3" /> disapproved
+                                  </Button>
+                                </div>
+                              </TableCell>
                             </TableRow>
                           ))}
                           <TableRow>
@@ -410,7 +579,7 @@ export default function ViewOrderReqPage() {
                                 sum + (typeof item.expenses === 'object' && 'toNumber' in item.expenses ? item.expenses.toNumber() : Number(item.expenses)), 0
                               ).toFixed(2)}
                             </TableCell>
-                            <TableCell colSpan={3}></TableCell>
+                            <TableCell colSpan={6}></TableCell>
                           </TableRow>
                         </TableBody>
                       </Table>
@@ -489,42 +658,6 @@ export default function ViewOrderReqPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Delete Confirmation Dialog */}
-        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-destructive">
-                <AlertTriangle className="h-5 w-5" />
-                Confirm Deletion
-              </DialogTitle>
-              <DialogDescription className="text-left">
-                Are you sure you want to delete Order Requisition{" "}
-                <span className="font-semibold">{orderToDelete?.orderNumber}</span>?
-                <br />
-                <br />
-                <span className="text-destructive font-medium">
-                  This action cannot be undone.
-                </span>
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={() => setIsDeleteDialogOpen(false)}
-                disabled={deleteOrderMutation.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleConfirmDelete}
-                disabled={deleteOrderMutation.isPending}
-              >
-                {deleteOrderMutation.isPending ? "Deleting..." : "Delete"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Orders Table */}
         <Card>
@@ -542,7 +675,6 @@ export default function ViewOrderReqPage() {
                   <TableHead>Date</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Actions</TableHead>
-                  <TableHead>Orders</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -565,56 +697,19 @@ export default function ViewOrderReqPage() {
                       <TableCell>{new Date(order.orderDate).toLocaleDateString()}</TableCell>
                       <TableCell className="font-medium">₱{Number(order.overallTotal).toFixed(2)}</TableCell>
                       <TableCell>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewOrder(order.id)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditOrder(order.id)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteOrder(order.id, order.generatedOrNumber ?? "System generated")}
-                            disabled={deleteOrderMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {/* Check if customer name contains TCX */}
-                        {order.customer.customerName.toUpperCase().includes('TCX') ? (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700"
-                          >
-                            Work Order
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            Job Order
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewOrder(order.id)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       No order requisitions found.
                     </TableCell>
                   </TableRow>
