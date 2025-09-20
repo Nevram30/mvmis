@@ -9,41 +9,34 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~
 import { Badge } from "~/components/ui/badge";
 import { HardHat, Search, Edit, Trash2 } from "lucide-react";
 import DashboardLayout from "~/app/_components/dashboard-layout";
-
-interface Contractor {
-  id: string;
-  contractorName: string;
-  address: string;
-  telNo?: string;
-  mobileNo?: string;
-  tin?: string;
-  assignment: "OUTSIDE_LABOR" | "INHOUSE";
-  createdAt: string;
-}
+import { api } from "~/trpc/react";
+import { type AssignmentType } from "@prisma/client";
 
 export default function AddContractorPage() {
-  const [contractors, setContractors] = useState<Contractor[]>([
-    {
-      id: "1",
-      contractorName: "ABC Construction Co.",
-      address: "789 Industrial Ave, City",
-      telNo: "123-456-7890",
-      mobileNo: "987-654-3210",
-      tin: "123-456-789",
-      assignment: "OUTSIDE_LABOR",
-      createdAt: "2024-01-15"
+  // Fetch contractors from database
+  const { data: contractors = [], refetch } = api.contractor.getAll.useQuery();
+  
+  // Create contractor mutation
+  const createContractor = api.contractor.create.useMutation({
+    onSuccess: () => {
+      void refetch();
+      setFormData({
+        contractorName: "",
+        address: "",
+        telNo: "",
+        mobileNo: "",
+        tin: "",
+        assignment: "OUTSIDE_LABOR"
+      });
     },
-    {
-      id: "2",
-      contractorName: "XYZ Builders Inc.",
-      address: "456 Builder St, Town",
-      telNo: "555-123-4567",
-      mobileNo: "555-987-6543",
-      tin: "987-654-321",
-      assignment: "INHOUSE",
-      createdAt: "2024-01-20"
-    }
-  ]);
+  });
+
+  // Delete contractor mutation
+  const deleteContractor = api.contractor.delete.useMutation({
+    onSuccess: () => {
+      void refetch();
+    },
+  });
 
   const [formData, setFormData] = useState({
     contractorName: "",
@@ -51,7 +44,7 @@ export default function AddContractorPage() {
     telNo: "",
     mobileNo: "",
     tin: "",
-    assignment: "OUTSIDE_LABOR" as "OUTSIDE_LABOR" | "INHOUSE"
+    assignment: "OUTSIDE_LABOR" as AssignmentType
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -67,30 +60,18 @@ export default function AddContractorPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const newContractor: Contractor = {
-      id: Date.now().toString(),
+    void createContractor.mutate({
       contractorName: formData.contractorName,
       address: formData.address,
-      ...(formData.telNo.trim() && { telNo: formData.telNo.trim() }),
-      ...(formData.mobileNo.trim() && { mobileNo: formData.mobileNo.trim() }),
-      ...(formData.tin.trim() && { tin: formData.tin.trim() }),
+      telNo: formData.telNo.trim() || undefined,
+      mobileNo: formData.mobileNo.trim() || undefined,
+      tin: formData.tin.trim() || undefined,
       assignment: formData.assignment,
-      createdAt: new Date().toISOString().split('T')[0]!
-    };
-
-    setContractors(prev => [newContractor, ...prev]);
-    setFormData({
-      contractorName: "",
-      address: "",
-      telNo: "",
-      mobileNo: "",
-      tin: "",
-      assignment: "OUTSIDE_LABOR"
     });
   };
 
   const handleDelete = (id: string) => {
-    setContractors(prev => prev.filter(contractor => contractor.id !== id));
+    void deleteContractor.mutate({ id });
   };
 
   const filteredContractors = contractors.filter(contractor =>
@@ -201,9 +182,13 @@ export default function AddContractorPage() {
                   </select>
                 </div>
               </div>
-              <Button type="submit" className="w-full md:w-auto">
+              <Button 
+                type="submit" 
+                className="w-full md:w-auto"
+                disabled={createContractor.isPending}
+              >
                 <HardHat className="mr-2 h-4 w-4" />
-                Add Contractor
+                {createContractor.isPending ? "Adding..." : "Add Contractor"}
               </Button>
             </form>
           </CardContent>
@@ -266,7 +251,7 @@ export default function AddContractorPage() {
                         <TableCell>{contractor.mobileNo ?? "—"}</TableCell>
                         <TableCell>{contractor.tin ?? "—"}</TableCell>
                         <TableCell>{getAssignmentBadge(contractor.assignment)}</TableCell>
-                        <TableCell>{contractor.createdAt}</TableCell>
+                        <TableCell>{contractor.createdAt.toISOString().split('T')[0]}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Button variant="ghost" size="sm">
@@ -277,6 +262,7 @@ export default function AddContractorPage() {
                               size="sm"
                               onClick={() => handleDelete(contractor.id)}
                               className="text-destructive hover:text-destructive"
+                              disabled={deleteContractor.isPending}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
