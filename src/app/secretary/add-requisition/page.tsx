@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { DialogDescription, DialogFooter } from "~/components/ui/dialog";
 
 import LaborRepairFormDialog from "~/components/LaborRepairFormDialog";
+import WorkOrderDialog from "~/components/WorkOrderDialog";
 
 
 interface LaborItem {
@@ -50,6 +51,7 @@ export default function AddRequisitionPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isLaborFormOpen, setIsLaborFormOpen] = useState(false);
+  const [isWorkOrderDialogOpen, setIsWorkOrderDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedOrderId] = useState<string>("");
   const [viewOrderId, setViewOrderId] = useState<string>("");
@@ -69,6 +71,31 @@ export default function AddRequisitionPage() {
     mechanic?: string | null;
     assignment?: string | null;
     status?: string | null;
+  } | null>(null);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<{
+    id: string;
+    generatedOrNumber?: string;
+    customer: { customerName: string };
+    contractor: { id: string; contractorName: string };
+    make: string;
+    plateNumber: string;
+    engineNumber: string;
+    orderDate: string;
+    laborItems: Array<{
+      id: string;
+      itemNumber: number;
+      description: string;
+      expenses: number | { toNumber(): number };
+      mechanic?: string;
+      assignment?: string;
+    }>;
+    materialItems: Array<{
+      id: string;
+      itemNumber: number;
+      quantity?: number;
+      description: string;
+      expenses: number | { toNumber(): number };
+    }>;
   } | null>(null);
   const [formData, setFormData] = useState<OrderFormData>({
     customerId: "",
@@ -206,6 +233,61 @@ export default function AddRequisitionPage() {
   }) => {
     setSelectedLaborItem(laborItem);
     setIsLaborFormOpen(true);
+  };
+
+  // Function to handle opening work order dialog
+  const handleOpenWorkOrder = (order: {
+    id: string;
+    generatedOrNumber?: string | null;
+    customer: { customerName: string };
+    contractor: { id: string; contractorName: string };
+    make: string;
+    plateNumber: string;
+    engineNumber: string;
+    orderDate: string | Date;
+    laborItems: Array<{
+      id: string;
+      itemNumber: number;
+      description: string;
+      expenses: number | { toNumber(): number };
+      mechanic?: string | null;
+      assignment?: string | null;
+      status?: string | null;
+    }>;
+    materialItems: Array<{
+      id: string;
+      description: string;
+      createdAt: Date;
+      updatedAt: Date;
+      itemNumber: number;
+      expenses: { toNumber(): number } | number; // Decimal type from database
+      quantity: number | null;
+      orderRequisitionId: string;
+    }>;
+  }) => {
+    // Convert Date to string if needed and handle null values
+    const orderWithStringDate = {
+      ...order,
+      orderDate: typeof order.orderDate === 'string' ? order.orderDate : order.orderDate.toISOString(),
+      generatedOrNumber: order.generatedOrNumber ?? undefined,
+      laborItems: order.laborItems.map(item => ({
+        ...item,
+        mechanic: item.mechanic ?? undefined,
+        assignment: item.assignment ?? undefined,
+        status: item.status ?? undefined,
+      })),
+      materialItems: order.materialItems.map(item => ({
+        id: item.id,
+        itemNumber: item.itemNumber,
+        quantity: item.quantity ?? 0, // Handle null quantity
+        description: item.description,
+        expenses: typeof item.expenses === 'object' && item.expenses !== null && 'toNumber' in item.expenses 
+          ? item.expenses 
+          : item.expenses, // Handle both Decimal and number types
+      })),
+    };
+    setSelectedWorkOrder(orderWithStringDate);
+    setIsWorkOrderDialogOpen(true);
   };
 
   // Function to handle deleting order requisition
@@ -1086,6 +1168,16 @@ export default function AddRequisitionPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* Work Order Dialog */}
+          {selectedWorkOrder && (
+            <WorkOrderDialog
+              isOpen={isWorkOrderDialogOpen}
+              onClose={() => setIsWorkOrderDialogOpen(false)}
+              orderRequisition={selectedWorkOrder}
+              onWorkOrderCreated={() => void refetchOrders()}
+            />
+          )}
         </div>
 
         {/* Orders Table */}
@@ -1159,7 +1251,8 @@ export default function AddRequisitionPage() {
                                     ? "bg-blue-600 hover:bg-blue-700"
                                     : "bg-blue-400 hover:bg-blue-500"
                               }`}
-                              disabled={hasDisapprovedLaborItems(order.id)}
+                              disabled={hasDisapprovedLaborItems(order.id) || !areAllLaborItemsApproved(order.id)}
+                              onClick={() => areAllLaborItemsApproved(order.id) && !hasDisapprovedLaborItems(order.id) && handleOpenWorkOrder(order)}
                               title={
                                 hasDisapprovedLaborItems(order.id) 
                                   ? "Cannot create Work Order - Some labor items are disapproved"

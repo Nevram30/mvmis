@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
@@ -78,6 +78,27 @@ export default function LaborRepairFormDialog({
     }
   );
 
+  // Function to calculate running balances
+  const calculateBalances = useCallback((advances: CashAdvance[], totalAmount?: number) => {
+    const amount = totalAmount ?? formData.amount;
+    let runningBalance = amount; // Start with the total amount
+    
+    return advances.map((advance, index) => {
+      if (index === 0) {
+        // First balance = Amount - First cash advance
+        runningBalance = amount - advance.amount;
+      } else {
+        // Subsequent balances = Previous balance - Current cash advance
+        runningBalance = runningBalance - advance.amount;
+      }
+      
+      return {
+        ...advance,
+        balance: runningBalance
+      };
+    });
+  }, [formData.amount]);
+
   // Mutation for creating labor repair form
   const createLaborRepairFormMutation = api.laborRepairForm.create.useMutation({
     onSuccess: () => {
@@ -147,7 +168,7 @@ export default function LaborRepairFormDialog({
         setCashAdvances(calculateBalances([{ date: new Date(), amount: 0, balance: 0 }], expensesValue));
       }
     }
-  }, [selectedLaborItem, isOpen, orderRequisitionData, existingForm]);
+  }, [selectedLaborItem, isOpen, orderRequisitionData, existingForm, calculateBalances]);
 
   const handleFormDataChange = (field: string, value: string | number) => {
     setFormData(prev => ({
@@ -183,27 +204,6 @@ export default function LaborRepairFormDialog({
       }
       
       return updated;
-    });
-  };
-
-  // Function to calculate running balances
-  const calculateBalances = (advances: CashAdvance[], totalAmount?: number) => {
-    const amount = totalAmount ?? formData.amount;
-    let runningBalance = amount; // Start with the total amount
-    
-    return advances.map((advance, index) => {
-      if (index === 0) {
-        // First balance = Amount - First cash advance
-        runningBalance = amount - advance.amount;
-      } else {
-        // Subsequent balances = Previous balance - Current cash advance
-        runningBalance = runningBalance - advance.amount;
-      }
-      
-      return {
-        ...advance,
-        balance: runningBalance
-      };
     });
   };
 

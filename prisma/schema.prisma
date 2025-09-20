@@ -166,6 +166,7 @@ model Contractor {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   orderRequests  OrderRequisition[]
+  workOrders     WorkOrder[]
 
   @@map("contractor")
 }
@@ -198,6 +199,7 @@ model OrderRequisition {
   contractor    Contractor              @relation(fields: [contractorId], references: [id], onDelete: Cascade)
   laborItems    OrderLaborItem[]
   materialItems OrderMaterialItem[]
+  workOrders    WorkOrder[]
 
   @@map("order_requisition")
 }
@@ -256,6 +258,7 @@ model LaborRepairForm {
 
   orderLaborItem        OrderLaborItem        @relation(fields: [orderLaborItemId], references: [id], onDelete: Cascade)
   cashAdvances          LaborRepairFormCashAdvance[]
+  workOrders            WorkOrder[]
 
   @@map("labor_repair_form")
 }
@@ -272,4 +275,21 @@ model LaborRepairFormCashAdvance {
   laborRepairForm       LaborRepairForm  @relation(fields: [laborRepairFormId], references: [id], onDelete: Cascade)
 
   @@map("labor_repair_form_cash_advance")
+}
+
+model WorkOrder {
+  id                    String           @id @default(cuid()) @map("id_work_order")
+  orderRequisitionId    String           @map("id_order_requisition")
+  contractorId          String           @map("id_contractor")
+  laborRepairId         String?          @map("id_labor_repair")
+  customerBilling       Decimal          @default(0) @map("customer_billing") @db.Decimal(10, 2)
+  expenses              Decimal          @default(0) @db.Decimal(10, 2)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  orderRequisition      OrderRequisition @relation(fields: [orderRequisitionId], references: [id], onDelete: Cascade)
+  contractor            Contractor       @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  laborRepairForm       LaborRepairForm? @relation(fields: [laborRepairId], references: [id], onDelete: Cascade)
+
+  @@map("work_order")
 }
