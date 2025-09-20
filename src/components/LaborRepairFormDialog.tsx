@@ -116,8 +116,8 @@ export default function LaborRepairFormDialog({
           plateNumber: existingForm.plateNumber,
           engineNumber: existingForm.engineNumber,
           amount: existingForm.amount,
-        orNumber: existingForm.orNumber ?? "",
-        scopeOfWorkDetails: existingForm.scopeOfWorkDetails ?? "",
+          orNumber: existingForm.orNumber ?? "",
+          scopeOfWorkDetails: existingForm.scopeOfWorkDetails ?? "",
         });
         
         // Populate cash advances
@@ -131,16 +131,20 @@ export default function LaborRepairFormDialog({
         }
       } else if (orderRequisitionData) {
         // Initialize for new form
+        const expensesValue = typeof selectedLaborItem.expenses === 'number' 
+          ? selectedLaborItem.expenses 
+          : Number(selectedLaborItem.expenses);
+        
         setFormData({
           contractorName: selectedLaborItem.mechanic ?? orderRequisitionData.contractor.contractorName,
           make: orderRequisitionData.make,
           plateNumber: orderRequisitionData.plateNumber,
           engineNumber: orderRequisitionData.engineNumber,
-          amount: 0,
+          amount: expensesValue,
           orNumber: orderRequisitionData.generatedOrNumber ?? "1000000000",
           scopeOfWorkDetails: "",
         });
-        setCashAdvances([{ date: new Date(), amount: 0, balance: 0 }]);
+        setCashAdvances(calculateBalances([{ date: new Date(), amount: 0, balance: 0 }], expensesValue));
       }
     }
   }, [selectedLaborItem, isOpen, orderRequisitionData, existingForm]);
@@ -153,7 +157,7 @@ export default function LaborRepairFormDialog({
     
     // Recalculate balances when amount changes
     if (field === 'amount') {
-      setCashAdvances(prev => calculateBalances(prev));
+      setCashAdvances(prev => calculateBalances(prev, value as number));
     }
   };
 
@@ -183,13 +187,14 @@ export default function LaborRepairFormDialog({
   };
 
   // Function to calculate running balances
-  const calculateBalances = (advances: CashAdvance[]) => {
-    let runningBalance = formData.amount; // Start with the total amount
+  const calculateBalances = (advances: CashAdvance[], totalAmount?: number) => {
+    const amount = totalAmount ?? formData.amount;
+    let runningBalance = amount; // Start with the total amount
     
     return advances.map((advance, index) => {
       if (index === 0) {
         // First balance = Amount - First cash advance
-        runningBalance = formData.amount - advance.amount;
+        runningBalance = amount - advance.amount;
       } else {
         // Subsequent balances = Previous balance - Current cash advance
         runningBalance = runningBalance - advance.amount;
